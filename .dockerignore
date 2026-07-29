@@ -1,0 +1,9 @@
+.git
+.github
+.gradle
+.env
+.env.*
+.idea
+.vscode
+*.log
+README.md
