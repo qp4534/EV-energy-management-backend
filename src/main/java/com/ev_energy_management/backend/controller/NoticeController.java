@@ -1,0 +1,47 @@
+package com.ev_energy_management.backend.controller;
+
+import com.ev_energy_management.backend.dto.NoticeDto;
+import com.ev_energy_management.backend.service.NoticeService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/notices")
+public class NoticeController {
+
+    private final NoticeService noticeService;
+
+    public NoticeController(NoticeService noticeService) {
+        this.noticeService = noticeService;
+    }
+
+    @GetMapping
+    public List<NoticeDto> getNotices() {
+        return noticeService.findAll();
+    }
+
+    @GetMapping("/{noticeId}")
+    public NoticeDto getNotice(@PathVariable UUID noticeId) {
+        return noticeService.findById(noticeId);
+    }
+
+    @PostMapping
+    public ResponseEntity<NoticeDto> createNotice(@RequestBody NoticeDto request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(noticeService.create(request));
+    }
+
+    @PutMapping("/{noticeId}")
+    public NoticeDto updateNotice(@PathVariable UUID noticeId, @RequestBody NoticeDto request) {
+        return noticeService.update(noticeId, request);
+    }
+
+    @DeleteMapping("/{noticeId}")
+    public ResponseEntity<Void> deleteNotice(@PathVariable UUID noticeId) {
+        noticeService.delete(noticeId);
+        return ResponseEntity.noContent().build();
+    }
+}
