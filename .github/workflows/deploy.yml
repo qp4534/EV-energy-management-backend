@@ -2,7 +2,9 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [main]
+    # dev_nh added temporarily to test this workflow before merging; remove once verified
+    branches: [main, dev_nh]
+  workflow_dispatch:
 
 env:
   IMAGE: qp4534/ev-energy-management-backend
