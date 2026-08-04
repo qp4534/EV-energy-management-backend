@@ -30,12 +30,12 @@ public class AiReportService {
 
     public AiReportDto create(AiReportDto request) {
         return new AiReportDto(UUID.randomUUID(), request.title(), request.reportData(), request.reportType(),
-                OffsetDateTime.now(), request.cid2(), request.anomalyId(), false);
+                OffsetDateTime.now(), request.carId(), request.anomalyId(), false);
     }
 
     public AiReportDto update(UUID reportId, AiReportDto request) {
         return new AiReportDto(reportId, request.title(), request.reportData(), request.reportType(),
-                request.createdAt(), request.cid2(), request.anomalyId(), request.isRead());
+                request.createdAt(), request.carId(), request.anomalyId(), request.isRead());
     }
 
     public void delete(UUID reportId) {

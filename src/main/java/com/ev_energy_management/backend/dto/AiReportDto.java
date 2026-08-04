@@ -9,7 +9,7 @@ public record AiReportDto(
         String reportData,
         String reportType,
         OffsetDateTime createdAt,
-        UUID cid2,
+        UUID carId,
         UUID anomalyId,
         Boolean isRead
 ) {}
