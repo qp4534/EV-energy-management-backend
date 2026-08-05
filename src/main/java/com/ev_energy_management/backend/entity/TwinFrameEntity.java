@@ -56,11 +56,18 @@ public class TwinFrameEntity {
     @Column(name = "`raw_metrics`")
     private String rawMetrics;
 
-    @Column(name = "`anomaly_id`", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "`model_input`")
+    private String modelInput;
+
+    @Column(name = "`anomaly_id`")
     private UUID anomalyId;
 
     @Column(name = "`car_id`", nullable = false)
     private UUID carId;
+
+    @Column(name = "`session_id`")
+    private UUID sessionId;
 
     @Column(name = "`source_image_ref`")
     private String sourceImageRef;
