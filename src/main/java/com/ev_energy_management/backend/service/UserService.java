@@ -1,44 +1,89 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.UserDto;
+import com.ev_energy_management.backend.entity.UserEntity;
+import com.ev_energy_management.backend.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class UserService {
 
-    private List<UserDto> mockData() {
-        return List.of(
-                new UserDto(UUID.randomUUID(), "user1@example.com", "hashed-password-1", "이용자",
-                        LocalDate.of(1995, 3, 12), true, 0, false, "{}"),
-                new UserDto(UUID.randomUUID(), "admin@example.com", "hashed-password-2", "관리자",
-                        LocalDate.of(1990, 7, 1), true, 0, false, "{\"all\":true}")
-        );
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     public List<UserDto> findAll() {
-        return mockData();
+        return userRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public UserDto findById(UUID userId) {
-        return new UserDto(userId, "user1@example.com", "hashed-password-1", "이용자",
-                LocalDate.of(1995, 3, 12), true, 0, false, "{}");
+        return toDto(userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId)));
     }
 
     public UserDto create(UserDto request) {
-        return new UserDto(UUID.randomUUID(), request.email(), request.passwordHash(), request.role(),
-                request.birth(), request.isAgree(), request.loginFailed(), request.isLocked(), request.permissions());
+        UserEntity entity = UserEntity.builder()
+                .email(request.email())
+                .passwordHash(request.passwordHash())
+                .role(request.role())
+                .birth(request.birth())
+                .isAgree(request.isAgree())
+                .loginFailed(request.loginFailed())
+                .isLocked(request.isLocked())
+                .permissions(request.permissions())
+                .name(request.name())
+                .phone(request.phone())
+                .profileImageUrl(request.profileImageUrl())
+                .emailVerified(request.emailVerified())
+                .build();
+        return toDto(userRepository.save(entity));
     }
 
     public UserDto update(UUID userId, UserDto request) {
-        return new UserDto(userId, request.email(), request.passwordHash(), request.role(),
-                request.birth(), request.isAgree(), request.loginFailed(), request.isLocked(), request.permissions());
+        UserEntity entity = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        entity.setEmail(request.email());
+        entity.setPasswordHash(request.passwordHash());
+        entity.setRole(request.role());
+        entity.setBirth(request.birth());
+        entity.setIsAgree(request.isAgree());
+        entity.setLoginFailed(request.loginFailed());
+        entity.setIsLocked(request.isLocked());
+        entity.setPermissions(request.permissions());
+        entity.setName(request.name());
+        entity.setPhone(request.phone());
+        entity.setProfileImageUrl(request.profileImageUrl());
+        entity.setEmailVerified(request.emailVerified());
+        return toDto(userRepository.save(entity));
     }
 
     public void delete(UUID userId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        userRepository.deleteById(userId);
+    }
+
+    private UserDto toDto(UserEntity entity) {
+        return new UserDto(
+                entity.getUserId(),
+                entity.getEmail(),
+                entity.getPasswordHash(),
+                entity.getRole(),
+                entity.getBirth(),
+                entity.getIsAgree(),
+                entity.getLoginFailed(),
+                entity.getIsLocked(),
+                entity.getPermissions(),
+                entity.getName(),
+                entity.getPhone(),
+                entity.getProfileImageUrl(),
+                entity.getCreatedAt(),
+                entity.getEmailVerified(),
+                entity.getLockedAt()
+        );
     }
 }

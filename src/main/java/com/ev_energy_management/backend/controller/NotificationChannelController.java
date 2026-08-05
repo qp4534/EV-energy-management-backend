@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/notification-channels")
@@ -24,7 +25,7 @@ public class NotificationChannelController {
     }
 
     @GetMapping("/{channelId}")
-    public NotificationChannelDto getNotificationChannel(@PathVariable String channelId) {
+    public NotificationChannelDto getNotificationChannel(@PathVariable UUID channelId) {
         return notificationChannelService.findById(channelId);
     }
 
@@ -34,12 +35,12 @@ public class NotificationChannelController {
     }
 
     @PutMapping("/{channelId}")
-    public NotificationChannelDto updateNotificationChannel(@PathVariable String channelId, @RequestBody NotificationChannelDto request) {
+    public NotificationChannelDto updateNotificationChannel(@PathVariable UUID channelId, @RequestBody NotificationChannelDto request) {
         return notificationChannelService.update(channelId, request);
     }
 
     @DeleteMapping("/{channelId}")
-    public ResponseEntity<Void> deleteNotificationChannel(@PathVariable String channelId) {
+    public ResponseEntity<Void> deleteNotificationChannel(@PathVariable UUID channelId) {
         notificationChannelService.delete(channelId);
         return ResponseEntity.noContent().build();
     }

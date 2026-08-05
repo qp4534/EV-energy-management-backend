@@ -1,41 +1,67 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.BatteryDiagnosisMetricDto;
+import com.ev_energy_management.backend.entity.BatteryDiagnosisMetricEntity;
+import com.ev_energy_management.backend.repository.BatteryDiagnosisMetricRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class BatteryDiagnosisMetricService {
 
-    private List<BatteryDiagnosisMetricDto> mockData() {
-        return List.of(
-                new BatteryDiagnosisMetricDto(UUID.randomUUID(), 88, 91, 85, 90, OffsetDateTime.now(), UUID.randomUUID()),
-                new BatteryDiagnosisMetricDto(UUID.randomUUID(), 64, 70, 58, 66, OffsetDateTime.now(), UUID.randomUUID())
-        );
+    private final BatteryDiagnosisMetricRepository batteryDiagnosisMetricRepository;
+
+    public BatteryDiagnosisMetricService(BatteryDiagnosisMetricRepository batteryDiagnosisMetricRepository) {
+        this.batteryDiagnosisMetricRepository = batteryDiagnosisMetricRepository;
     }
 
     public List<BatteryDiagnosisMetricDto> findAll() {
-        return mockData();
+        return batteryDiagnosisMetricRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public BatteryDiagnosisMetricDto findById(UUID metricId) {
-        return new BatteryDiagnosisMetricDto(metricId, 88, 91, 85, 90, OffsetDateTime.now(), UUID.randomUUID());
+        return toDto(batteryDiagnosisMetricRepository.findById(metricId)
+                .orElseThrow(() -> new EntityNotFoundException("Battery diagnosis metric not found: " + metricId)));
     }
 
     public BatteryDiagnosisMetricDto create(BatteryDiagnosisMetricDto request) {
-        return new BatteryDiagnosisMetricDto(UUID.randomUUID(), request.remainingLifeScore(), request.dischargePowerScore(),
-                request.chargeHealthScore(), request.voltageStabilityScore(), OffsetDateTime.now(), request.batteryId());
+        BatteryDiagnosisMetricEntity entity = BatteryDiagnosisMetricEntity.builder()
+                .remainingLifeScore(request.remainingLifeScore())
+                .dischargePowerScore(request.dischargePowerScore())
+                .chargeHealthScore(request.chargeHealthScore())
+                .voltageStabilityScore(request.voltageStabilityScore())
+                .batteryId(request.batteryId())
+                .build();
+        return toDto(batteryDiagnosisMetricRepository.save(entity));
     }
 
     public BatteryDiagnosisMetricDto update(UUID metricId, BatteryDiagnosisMetricDto request) {
-        return new BatteryDiagnosisMetricDto(metricId, request.remainingLifeScore(), request.dischargePowerScore(),
-                request.chargeHealthScore(), request.voltageStabilityScore(), request.diagnosedAt(), request.batteryId());
+        BatteryDiagnosisMetricEntity entity = batteryDiagnosisMetricRepository.findById(metricId)
+                .orElseThrow(() -> new EntityNotFoundException("Battery diagnosis metric not found: " + metricId));
+        entity.setRemainingLifeScore(request.remainingLifeScore());
+        entity.setDischargePowerScore(request.dischargePowerScore());
+        entity.setChargeHealthScore(request.chargeHealthScore());
+        entity.setVoltageStabilityScore(request.voltageStabilityScore());
+        entity.setBatteryId(request.batteryId());
+        return toDto(batteryDiagnosisMetricRepository.save(entity));
     }
 
     public void delete(UUID metricId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        batteryDiagnosisMetricRepository.deleteById(metricId);
+    }
+
+    private BatteryDiagnosisMetricDto toDto(BatteryDiagnosisMetricEntity entity) {
+        return new BatteryDiagnosisMetricDto(
+                entity.getMetricId(),
+                entity.getRemainingLifeScore(),
+                entity.getDischargePowerScore(),
+                entity.getChargeHealthScore(),
+                entity.getVoltageStabilityScore(),
+                entity.getDiagnosedAt(),
+                entity.getBatteryId()
+        );
     }
 }

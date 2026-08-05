@@ -1,44 +1,67 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.ActionLogDto;
+import com.ev_energy_management.backend.entity.ActionLogEntity;
+import com.ev_energy_management.backend.repository.ActionLogRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ActionLogService {
 
-    private List<ActionLogDto> mockData() {
-        return List.of(
-                new ActionLogDto(UUID.randomUUID(), "LOGIN", "USER", UUID.randomUUID(),
-                        "{\"result\":\"success\"}", OffsetDateTime.now(), UUID.randomUUID()),
-                new ActionLogDto(UUID.randomUUID(), "NOTICE_CREATE", "NOTICE", UUID.randomUUID(),
-                        "{\"title\":\"정기 점검 안내\"}", OffsetDateTime.now(), UUID.randomUUID())
-        );
+    private final ActionLogRepository actionLogRepository;
+
+    public ActionLogService(ActionLogRepository actionLogRepository) {
+        this.actionLogRepository = actionLogRepository;
     }
 
     public List<ActionLogDto> findAll() {
-        return mockData();
+        return actionLogRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public ActionLogDto findById(UUID actionId) {
-        return new ActionLogDto(actionId, "LOGIN", "USER", UUID.randomUUID(),
-                "{\"result\":\"success\"}", OffsetDateTime.now(), UUID.randomUUID());
+        return toDto(actionLogRepository.findById(actionId)
+                .orElseThrow(() -> new EntityNotFoundException("Action log not found: " + actionId)));
     }
 
     public ActionLogDto create(ActionLogDto request) {
-        return new ActionLogDto(UUID.randomUUID(), request.actionType(), request.targetType(), request.targetId(),
-                request.detail(), OffsetDateTime.now(), request.userId());
+        ActionLogEntity entity = ActionLogEntity.builder()
+                .actionType(request.actionType())
+                .targetType(request.targetType())
+                .targetId(request.targetId())
+                .detail(request.detail())
+                .userId(request.userId())
+                .build();
+        return toDto(actionLogRepository.save(entity));
     }
 
     public ActionLogDto update(UUID actionId, ActionLogDto request) {
-        return new ActionLogDto(actionId, request.actionType(), request.targetType(), request.targetId(),
-                request.detail(), request.createdAt(), request.userId());
+        ActionLogEntity entity = actionLogRepository.findById(actionId)
+                .orElseThrow(() -> new EntityNotFoundException("Action log not found: " + actionId));
+        entity.setActionType(request.actionType());
+        entity.setTargetType(request.targetType());
+        entity.setTargetId(request.targetId());
+        entity.setDetail(request.detail());
+        entity.setUserId(request.userId());
+        return toDto(actionLogRepository.save(entity));
     }
 
     public void delete(UUID actionId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        actionLogRepository.deleteById(actionId);
+    }
+
+    private ActionLogDto toDto(ActionLogEntity entity) {
+        return new ActionLogDto(
+                entity.getActionId(),
+                entity.getActionType(),
+                entity.getTargetType(),
+                entity.getTargetId(),
+                entity.getDetail(),
+                entity.getCreatedAt(),
+                entity.getUserId()
+        );
     }
 }

@@ -1,44 +1,67 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.ExternalIntegrationDto;
+import com.ev_energy_management.backend.entity.ExternalIntegrationEntity;
+import com.ev_energy_management.backend.repository.ExternalIntegrationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ExternalIntegrationService {
 
-    private List<ExternalIntegrationDto> mockData() {
-        return List.of(
-                new ExternalIntegrationDto(UUID.randomUUID(), "IoT 디바이스 게이트웨이", "배터리 센서 실시간 수집",
-                        "masked-api-key-1", true, OffsetDateTime.now(), OffsetDateTime.now().minusMonths(2)),
-                new ExternalIntegrationDto(UUID.randomUUID(), "결제 게이트웨이", "배터리 매입 결제 연동",
-                        "masked-api-key-2", false, null, OffsetDateTime.now().minusMonths(1))
-        );
+    private final ExternalIntegrationRepository externalIntegrationRepository;
+
+    public ExternalIntegrationService(ExternalIntegrationRepository externalIntegrationRepository) {
+        this.externalIntegrationRepository = externalIntegrationRepository;
     }
 
     public List<ExternalIntegrationDto> findAll() {
-        return mockData();
+        return externalIntegrationRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public ExternalIntegrationDto findById(UUID integrationId) {
-        return new ExternalIntegrationDto(integrationId, "IoT 디바이스 게이트웨이", "배터리 센서 실시간 수집",
-                "masked-api-key-1", true, OffsetDateTime.now(), OffsetDateTime.now().minusMonths(2));
+        return toDto(externalIntegrationRepository.findById(integrationId)
+                .orElseThrow(() -> new EntityNotFoundException("External integration not found: " + integrationId)));
     }
 
     public ExternalIntegrationDto create(ExternalIntegrationDto request) {
-        return new ExternalIntegrationDto(UUID.randomUUID(), request.name(), request.description(), request.apiKey(),
-                request.isStatus(), request.lastConnectedAt(), OffsetDateTime.now());
+        ExternalIntegrationEntity entity = ExternalIntegrationEntity.builder()
+                .name(request.name())
+                .description(request.description())
+                .apiKey(request.apiKey())
+                .isStatus(request.isStatus() != null ? request.isStatus() : true)
+                .lastConnectedAt(request.lastConnectedAt())
+                .build();
+        return toDto(externalIntegrationRepository.save(entity));
     }
 
     public ExternalIntegrationDto update(UUID integrationId, ExternalIntegrationDto request) {
-        return new ExternalIntegrationDto(integrationId, request.name(), request.description(), request.apiKey(),
-                request.isStatus(), request.lastConnectedAt(), request.createdAt());
+        ExternalIntegrationEntity entity = externalIntegrationRepository.findById(integrationId)
+                .orElseThrow(() -> new EntityNotFoundException("External integration not found: " + integrationId));
+        entity.setName(request.name());
+        entity.setDescription(request.description());
+        entity.setApiKey(request.apiKey());
+        entity.setIsStatus(request.isStatus());
+        entity.setLastConnectedAt(request.lastConnectedAt());
+        return toDto(externalIntegrationRepository.save(entity));
     }
 
     public void delete(UUID integrationId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        externalIntegrationRepository.deleteById(integrationId);
+    }
+
+    private ExternalIntegrationDto toDto(ExternalIntegrationEntity entity) {
+        return new ExternalIntegrationDto(
+                entity.getIntegrationId(),
+                entity.getName(),
+                entity.getDescription(),
+                entity.getApiKey(),
+                entity.getIsStatus(),
+                entity.getLastConnectedAt(),
+                entity.getCreatedAt()
+        );
     }
 }

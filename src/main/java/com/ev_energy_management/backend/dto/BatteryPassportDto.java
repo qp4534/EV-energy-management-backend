@@ -20,5 +20,10 @@ public record BatteryPassportDto(
         String reuseStatus,
         String gradeDetail,
         BigDecimal reliabilityScore,
-        String reuseProbabilities
+        String reuseProbabilities,
+        BigDecimal voltage,
+        BigDecimal current,
+        BigDecimal rul,
+        LocalDate manufacturedAt,
+        LocalDate installedAt
 ) {}
