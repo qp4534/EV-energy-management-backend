@@ -1,6 +1,9 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.NotificationMatrixDto;
+import com.ev_energy_management.backend.entity.NotificationMatrixEntity;
+import com.ev_energy_management.backend.repository.NotificationMatrixRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -9,30 +12,49 @@ import java.util.UUID;
 @Service
 public class NotificationMatrixService {
 
-    private List<NotificationMatrixDto> mockData() {
-        return List.of(
-                new NotificationMatrixDto(UUID.randomUUID(), "긴급", UUID.randomUUID(), UUID.randomUUID()),
-                new NotificationMatrixDto(UUID.randomUUID(), "주의", UUID.randomUUID(), UUID.randomUUID())
-        );
+    private final NotificationMatrixRepository notificationMatrixRepository;
+
+    public NotificationMatrixService(NotificationMatrixRepository notificationMatrixRepository) {
+        this.notificationMatrixRepository = notificationMatrixRepository;
     }
 
     public List<NotificationMatrixDto> findAll() {
-        return mockData();
+        return notificationMatrixRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public NotificationMatrixDto findById(UUID matrixId) {
-        return new NotificationMatrixDto(matrixId, "긴급", UUID.randomUUID(), UUID.randomUUID());
+        return toDto(notificationMatrixRepository.findById(matrixId)
+                .orElseThrow(() -> new EntityNotFoundException("Notification matrix not found: " + matrixId)));
     }
 
     public NotificationMatrixDto create(NotificationMatrixDto request) {
-        return new NotificationMatrixDto(UUID.randomUUID(), request.riskLevel(), request.isEnabled(), request.channelId());
+        NotificationMatrixEntity entity = NotificationMatrixEntity.builder()
+                .riskLevel(request.riskLevel() != null ? request.riskLevel() : "정상")
+                .isEnabled(request.isEnabled())
+                .channelId(request.channelId())
+                .build();
+        return toDto(notificationMatrixRepository.save(entity));
     }
 
     public NotificationMatrixDto update(UUID matrixId, NotificationMatrixDto request) {
-        return new NotificationMatrixDto(matrixId, request.riskLevel(), request.isEnabled(), request.channelId());
+        NotificationMatrixEntity entity = notificationMatrixRepository.findById(matrixId)
+                .orElseThrow(() -> new EntityNotFoundException("Notification matrix not found: " + matrixId));
+        entity.setRiskLevel(request.riskLevel());
+        entity.setIsEnabled(request.isEnabled());
+        entity.setChannelId(request.channelId());
+        return toDto(notificationMatrixRepository.save(entity));
     }
 
     public void delete(UUID matrixId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        notificationMatrixRepository.deleteById(matrixId);
+    }
+
+    private NotificationMatrixDto toDto(NotificationMatrixEntity entity) {
+        return new NotificationMatrixDto(
+                entity.getMatrixId(),
+                entity.getRiskLevel(),
+                entity.getIsEnabled(),
+                entity.getChannelId()
+        );
     }
 }

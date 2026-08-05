@@ -8,5 +8,11 @@ public record ChargingStationDto(
         String region,
         String address,
         BigDecimal latitude,
-        BigDecimal longitude
+        BigDecimal longitude,
+        String name,
+        Integer slowChargerCount,
+        Integer fastChargerCount,
+        Integer availableCount,
+        Integer minQueueLength,
+        Integer minWaitingTime
 ) {}

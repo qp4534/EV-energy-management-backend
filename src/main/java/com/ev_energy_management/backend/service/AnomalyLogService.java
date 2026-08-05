@@ -1,44 +1,70 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.AnomalyLogDto;
+import com.ev_energy_management.backend.entity.AnomalyLogEntity;
+import com.ev_energy_management.backend.repository.AnomalyLogRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class AnomalyLogService {
 
-    private List<AnomalyLogDto> mockData() {
-        return List.of(
-                new AnomalyLogDto(UUID.randomUUID(), "온도 상승", "THERMAL_SENSOR", "62.3",
-                        OffsetDateTime.now(), "경고", UUID.randomUUID(), UUID.randomUUID()),
-                new AnomalyLogDto(UUID.randomUUID(), "정상", "BATTERY_SENSOR", "24.1",
-                        OffsetDateTime.now(), "정상", UUID.randomUUID(), UUID.randomUUID())
-        );
+    private final AnomalyLogRepository anomalyLogRepository;
+
+    public AnomalyLogService(AnomalyLogRepository anomalyLogRepository) {
+        this.anomalyLogRepository = anomalyLogRepository;
     }
 
     public List<AnomalyLogDto> findAll() {
-        return mockData();
+        return anomalyLogRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public AnomalyLogDto findById(UUID anomalyId) {
-        return new AnomalyLogDto(anomalyId, "온도 상승", "THERMAL_SENSOR", "62.3",
-                OffsetDateTime.now(), "경고", UUID.randomUUID(), UUID.randomUUID());
+        return toDto(anomalyLogRepository.findById(anomalyId)
+                .orElseThrow(() -> new EntityNotFoundException("Anomaly log not found: " + anomalyId)));
     }
 
     public AnomalyLogDto create(AnomalyLogDto request) {
-        return new AnomalyLogDto(UUID.randomUUID(), request.abnormalType(), request.sourceType(),
-                request.triggerValue(), OffsetDateTime.now(), request.riskLevel(), request.carId(), request.sessionId());
+        AnomalyLogEntity entity = AnomalyLogEntity.builder()
+                .abnormalType(request.abnormalType())
+                .sourceType(request.sourceType())
+                .triggerValue(request.triggerValue())
+                .riskLevel(request.riskLevel() != null ? request.riskLevel() : "정상")
+                .carId(request.carId())
+                .sessionId(request.sessionId())
+                .build();
+        return toDto(anomalyLogRepository.save(entity));
     }
 
     public AnomalyLogDto update(UUID anomalyId, AnomalyLogDto request) {
-        return new AnomalyLogDto(anomalyId, request.abnormalType(), request.sourceType(),
-                request.triggerValue(), request.detectedAt(), request.riskLevel(), request.carId(), request.sessionId());
+        AnomalyLogEntity entity = anomalyLogRepository.findById(anomalyId)
+                .orElseThrow(() -> new EntityNotFoundException("Anomaly log not found: " + anomalyId));
+        entity.setAbnormalType(request.abnormalType());
+        entity.setSourceType(request.sourceType());
+        entity.setTriggerValue(request.triggerValue());
+        entity.setRiskLevel(request.riskLevel());
+        entity.setCarId(request.carId());
+        entity.setSessionId(request.sessionId());
+        return toDto(anomalyLogRepository.save(entity));
     }
 
     public void delete(UUID anomalyId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        anomalyLogRepository.deleteById(anomalyId);
+    }
+
+    private AnomalyLogDto toDto(AnomalyLogEntity entity) {
+        return new AnomalyLogDto(
+                entity.getAnomalyId(),
+                entity.getAbnormalType(),
+                entity.getSourceType(),
+                entity.getTriggerValue(),
+                entity.getDetectedAt(),
+                entity.getRiskLevel(),
+                entity.getCarId(),
+                entity.getSessionId()
+        );
     }
 }

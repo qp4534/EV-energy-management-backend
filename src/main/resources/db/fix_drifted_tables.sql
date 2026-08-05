@@ -1,0 +1,52 @@
+-- These 5 tables were apparently created before schema.sql (different/older structure).
+-- This ALTERs them to match schema.sql WITHOUT dropping/losing existing data.
+-- Safe to re-run (IF NOT EXISTS everywhere except the conditional rename below).
+
+-- CHARGING_SESSION: column was named charge_state instead of change_state
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'CHARGING_SESSION' AND column_name = 'charge_state'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'CHARGING_SESSION' AND column_name = 'change_state'
+    ) THEN
+        ALTER TABLE "CHARGING_SESSION" RENAME COLUMN "charge_state" TO "change_state";
+    END IF;
+END $$;
+
+ALTER TABLE "CHARGING_SESSION" ADD COLUMN IF NOT EXISTS "start_time" TIMESTAMPTZ;
+ALTER TABLE "CHARGING_SESSION" ADD COLUMN IF NOT EXISTS "end_time" TIMESTAMPTZ;
+ALTER TABLE "CHARGING_SESSION" ADD COLUMN IF NOT EXISTS "start_soc" NUMERIC(4,1);
+ALTER TABLE "CHARGING_SESSION" ADD COLUMN IF NOT EXISTS "end_soc" NUMERIC(4,1);
+
+-- USER: missing login_faild (and defensively, other newer fields)
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "login_faild" INT DEFAULT 0 NOT NULL;
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "name" VARCHAR;
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "phone" VARCHAR(50);
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "profile_image_url" VARCHAR(500);
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "email_verified" BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE "USER" ADD COLUMN IF NOT EXISTS "locked_at" TIMESTAMPTZ;
+
+-- CHARGING_STATION: missing min_queue_length / min_waiting_time
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "min_queue_length" INT;
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "min_waiting_time" INT;
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "name" VARCHAR(100);
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "slow_charger_count" INT DEFAULT 0 NOT NULL;
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "fast_charger_count" INT DEFAULT 0 NOT NULL;
+ALTER TABLE "CHARGING_STATION" ADD COLUMN IF NOT EXISTS "available_count" INT DEFAULT 0 NOT NULL;
+
+-- BATTERY_PASSPORT: missing installed_at / manufactured_at (and defensively, other newer fields)
+ALTER TABLE "BATTERY_PASSPORT" ADD COLUMN IF NOT EXISTS "installed_at" DATE;
+ALTER TABLE "BATTERY_PASSPORT" ADD COLUMN IF NOT EXISTS "manufactured_at" DATE;
+ALTER TABLE "BATTERY_PASSPORT" ADD COLUMN IF NOT EXISTS "voltage" NUMERIC(6,2);
+ALTER TABLE "BATTERY_PASSPORT" ADD COLUMN IF NOT EXISTS "current" NUMERIC(6,2);
+ALTER TABLE "BATTERY_PASSPORT" ADD COLUMN IF NOT EXISTS "rul" NUMERIC(4,1);
+
+-- NOTICE: missing is_important (and defensively, other newer fields)
+ALTER TABLE "NOTICE" ADD COLUMN IF NOT EXISTS "is_important" BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE "NOTICE" ADD COLUMN IF NOT EXISTS "target_role" VARCHAR(20);
+ALTER TABLE "NOTICE" ADD COLUMN IF NOT EXISTS "view_count" INT DEFAULT 0 NOT NULL;
+ALTER TABLE "NOTICE" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ;

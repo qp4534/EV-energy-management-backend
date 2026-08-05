@@ -1,5 +1,6 @@
 package com.ev_energy_management.backend.dto;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -9,6 +10,7 @@ public record ChargingSessionDto(
         OffsetDateTime endTime,
         String changeState,
         UUID carId,
-        UUID chargeId,
-        UUID thermalId
+        UUID chargerId,
+        BigDecimal startSoc,
+        BigDecimal endSoc
 ) {}

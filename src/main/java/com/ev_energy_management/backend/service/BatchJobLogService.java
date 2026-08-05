@@ -1,41 +1,64 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.BatchJobLogDto;
+import com.ev_energy_management.backend.entity.BatchJobLogEntity;
+import com.ev_energy_management.backend.repository.BatchJobLogRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class BatchJobLogService {
 
-    private List<BatchJobLogDto> mockData() {
-        return List.of(
-                new BatchJobLogDto(UUID.randomUUID(), "AUTO", "SUCCESS", null, OffsetDateTime.now(), "BATCH_DIAGNOSIS"),
-                new BatchJobLogDto(UUID.randomUUID(), "MANUAL", "FAILED", "타임아웃 발생", OffsetDateTime.now(), "BATCH_REPORT")
-        );
+    private final BatchJobLogRepository batchJobLogRepository;
+
+    public BatchJobLogService(BatchJobLogRepository batchJobLogRepository) {
+        this.batchJobLogRepository = batchJobLogRepository;
     }
 
     public List<BatchJobLogDto> findAll() {
-        return mockData();
+        return batchJobLogRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public BatchJobLogDto findById(UUID batchLogId) {
-        return new BatchJobLogDto(batchLogId, "AUTO", "SUCCESS", null, OffsetDateTime.now(), "BATCH_DIAGNOSIS");
+        return toDto(batchJobLogRepository.findById(batchLogId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch job log not found: " + batchLogId)));
     }
 
     public BatchJobLogDto create(BatchJobLogDto request) {
-        return new BatchJobLogDto(UUID.randomUUID(), request.runType(), request.status(), request.message(),
-                OffsetDateTime.now(), request.jobId());
+        BatchJobLogEntity entity = BatchJobLogEntity.builder()
+                .runType(request.runType() != null ? request.runType() : "AUTO")
+                .status(request.status() != null ? request.status() : "SUCCESS")
+                .message(request.message())
+                .jobId(request.jobId())
+                .build();
+        return toDto(batchJobLogRepository.save(entity));
     }
 
     public BatchJobLogDto update(UUID batchLogId, BatchJobLogDto request) {
-        return new BatchJobLogDto(batchLogId, request.runType(), request.status(), request.message(),
-                request.executedAt(), request.jobId());
+        BatchJobLogEntity entity = batchJobLogRepository.findById(batchLogId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch job log not found: " + batchLogId));
+        entity.setRunType(request.runType());
+        entity.setStatus(request.status());
+        entity.setMessage(request.message());
+        entity.setJobId(request.jobId());
+        return toDto(batchJobLogRepository.save(entity));
     }
 
     public void delete(UUID batchLogId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        batchJobLogRepository.deleteById(batchLogId);
+    }
+
+    private BatchJobLogDto toDto(BatchJobLogEntity entity) {
+        return new BatchJobLogDto(
+                entity.getBatchLogId(),
+                entity.getRunType(),
+                entity.getStatus(),
+                entity.getMessage(),
+                entity.getExecutedAt(),
+                entity.getJobId()
+        );
     }
 }
