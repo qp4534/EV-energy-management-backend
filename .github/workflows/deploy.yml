@@ -2,8 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    # dev_nh added temporarily to test this workflow before merging; remove once verified
-    branches: [main, dev_nh]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -43,8 +42,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: qp4534/EV-energy-management-gitops
-          # dev_nh pinned temporarily for testing; switch to main once both dev_nh branches are merged
-          ref: dev_nh
           token: ${{ secrets.GITOPS_PUSH_TOKEN }}
           path: gitops
 
