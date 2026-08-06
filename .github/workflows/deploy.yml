@@ -53,3 +53,19 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git commit -am "backend image -> ${{ github.sha }}" || echo "no changes"
           git push
+
+      - name: Sync DB password secret to cluster
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no "ubuntu@$EC2_HOST" "
+            export KUBECONFIG=~/.kube/config
+            kubectl create secret generic db-secret -n backend \
+              --from-literal=DB_PASSWORD='$DB_PASSWORD' \
+              --dry-run=client -o yaml | kubectl apply -f -
+          "
