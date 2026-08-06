@@ -1,9 +1,12 @@
 package com.ev_energy_management.backend.controller;
 
+import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
+import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
 import com.ev_energy_management.backend.dto.TwinFrameDto;
 import com.ev_energy_management.backend.service.TwinFrameService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,6 +40,26 @@ public class TwinFrameController {
     @PostMapping
     public ResponseEntity<TwinFrameDto> createTwinFrame(@RequestBody TwinFrameDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(twinFrameService.create(request));
+    }
+
+    @PostMapping("/cars/{carId}/bms-samples")
+    public ResponseEntity<FastApiTwinFrameResponse> ingestBmsSample(
+            @PathVariable UUID carId,
+            @RequestBody BmsTwinSampleRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(twinFrameService.evaluateBmsSample(carId, request));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleInvalidBmsSample(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(exception.getMessage());
+    }
+
+    @ExceptionHandler(RestClientException.class)
+    public ResponseEntity<String> handleFastApiFailure(RestClientException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body("FastAPI twin service is unavailable");
     }
 
     @PutMapping("/{frameId}")

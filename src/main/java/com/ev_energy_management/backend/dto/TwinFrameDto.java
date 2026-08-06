@@ -14,7 +14,9 @@ public record TwinFrameDto(
         Short imageRiskLevel,
         Float imageConfidence,
         String rawMetrics,
+        String modelInput,
         UUID anomalyId,
         UUID carId,
+        UUID sessionId,
         String sourceImageRef
 ) {}
