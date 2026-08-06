@@ -47,7 +47,7 @@ jobs:
 
       - name: Update image tag in gitops repo
         run: |
-          sed -i "s#image: ${{ env.IMAGE }}:.*#image: ${{ env.IMAGE }}:${{ github.sha }}#" gitops/apps/backend/deployment.yaml
+          sed -i "s#image: ${{ env.IMAGE }}:.*#image: ${{ env.IMAGE }}:${{ github.sha }}#" gitops/apps/backend/deployment.yaml gitops/apps/backend-eks/deployment.yaml
           cd gitops
           git config user.name "backend-deploy-bot"
           git config user.email "actions@users.noreply.github.com"
@@ -69,3 +69,17 @@ jobs:
               --from-literal=DB_PASSWORD='$DB_PASSWORD' \
               --dry-run=client -o yaml | kubectl apply -f -
           "
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Sync DB password secret to EKS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-northeast-2
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          aws eks update-kubeconfig --name ev-mgmt-eks --region ap-northeast-2
+          kubectl create secret generic db-secret -n backend \
+            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
