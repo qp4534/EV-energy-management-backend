@@ -399,3 +399,7 @@ ALTER TABLE "NOTICE" ADD CONSTRAINT "FK_USER_TO_NOTICE_1" FOREIGN KEY ("user_id"
 ALTER TABLE "CAR" ADD CONSTRAINT "FK_USER_TO_CAR_1" FOREIGN KEY ("user_id") REFERENCES "USER" ("user_id");
 
 ALTER TABLE "BATTERY_PASSPORT" ADD CONSTRAINT "UQ_BATTERY_PASSPORT_CAR" UNIQUE ("car_id");
+
+-- ddl-auto=none이라 이 파일은 RDS에 수동으로 적용됨. 회원가입 이메일 중복 방지용 제약이니
+-- 실제 DB에도 이 ALTER문을 한 번 수동 실행해야 함(AuthService.signup의 findByEmail 체크가 1차 방어선).
+ALTER TABLE "USER" ADD CONSTRAINT "UQ_USER_EMAIL" UNIQUE ("email");
