@@ -1,44 +1,70 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.AiReportDto;
+import com.ev_energy_management.backend.entity.AiReportEntity;
+import com.ev_energy_management.backend.repository.AiReportRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class AiReportService {
 
-    private List<AiReportDto> mockData() {
-        return List.of(
-                new AiReportDto(UUID.randomUUID(), "2026년 6월 월간 리포트", "{\"summary\":\"전체 차량 상태 양호\"}",
-                        "월간보고서", OffsetDateTime.now(), UUID.randomUUID(), null, false),
-                new AiReportDto(UUID.randomUUID(), "이상 감지 리포트", "{\"summary\":\"온도 상승 감지\"}",
-                        "이상", OffsetDateTime.now(), UUID.randomUUID(), UUID.randomUUID(), true)
-        );
+    private final AiReportRepository aiReportRepository;
+
+    public AiReportService(AiReportRepository aiReportRepository) {
+        this.aiReportRepository = aiReportRepository;
     }
 
     public List<AiReportDto> findAll() {
-        return mockData();
+        return aiReportRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public AiReportDto findById(UUID reportId) {
-        return new AiReportDto(reportId, "2026년 6월 월간 리포트", "{\"summary\":\"전체 차량 상태 양호\"}",
-                "월간보고서", OffsetDateTime.now(), UUID.randomUUID(), null, false);
+        return toDto(aiReportRepository.findById(reportId)
+                .orElseThrow(() -> new EntityNotFoundException("AI report not found: " + reportId)));
     }
 
     public AiReportDto create(AiReportDto request) {
-        return new AiReportDto(UUID.randomUUID(), request.title(), request.reportData(), request.reportType(),
-                OffsetDateTime.now(), request.cid2(), request.anomalyId(), false);
+        AiReportEntity entity = AiReportEntity.builder()
+                .title(request.title())
+                .reportData(request.reportData())
+                .reportType(request.reportType() != null ? request.reportType() : "월간")
+                .carId(request.carId())
+                .anomalyId(request.anomalyId())
+                .isRead(false)
+                .build();
+        return toDto(aiReportRepository.save(entity));
     }
 
     public AiReportDto update(UUID reportId, AiReportDto request) {
-        return new AiReportDto(reportId, request.title(), request.reportData(), request.reportType(),
-                request.createdAt(), request.cid2(), request.anomalyId(), request.isRead());
+        AiReportEntity entity = aiReportRepository.findById(reportId)
+                .orElseThrow(() -> new EntityNotFoundException("AI report not found: " + reportId));
+        entity.setTitle(request.title());
+        entity.setReportData(request.reportData());
+        entity.setReportType(request.reportType());
+        entity.setCarId(request.carId());
+        entity.setAnomalyId(request.anomalyId());
+        entity.setIsRead(request.isRead());
+        return toDto(aiReportRepository.save(entity));
     }
 
     public void delete(UUID reportId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        aiReportRepository.deleteById(reportId);
+    }
+
+    private AiReportDto toDto(AiReportEntity entity) {
+        return new AiReportDto(
+                entity.getReportId(),
+                entity.getTitle(),
+                entity.getReportData(),
+                entity.getReportType(),
+                entity.getCreatedAt(),
+                entity.getCarId(),
+                entity.getAnomalyId(),
+                entity.getIsRead()
+        );
     }
 }

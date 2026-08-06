@@ -1,57 +1,111 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.BatteryPassportDto;
+import com.ev_energy_management.backend.entity.BatteryPassportEntity;
+import com.ev_energy_management.backend.repository.BatteryPassportRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class BatteryPassportService {
 
-    private List<BatteryPassportDto> mockData() {
-        return List.of(
-                new BatteryPassportDto(UUID.randomUUID(), "LG에너지솔루션", "리튬이온", "77.4kWh",
-                        new BigDecimal("92.5"), 320, new BigDecimal("28.4"), LocalDate.now().minusMonths(1),
-                        UUID.randomUUID(), "1", 680, 1000, "양호", "재사용(EV 재제조)급",
-                        new BigDecimal("95.0"), "{\"unusable\":0.05,\"reusable\":0.9,\"remanufacturable\":0.05}"),
-                new BatteryPassportDto(UUID.randomUUID(), "삼성SDI", "리튬이온", "58.0kWh",
-                        new BigDecimal("78.2"), 610, new BigDecimal("31.1"), LocalDate.now().minusMonths(3),
-                        UUID.randomUUID(), "2", 390, 1000, "노후", "2차사용(ESS)급",
-                        new BigDecimal("80.0"), "{\"unusable\":0.15,\"reusable\":0.6,\"remanufacturable\":0.25}")
-        );
+    private final BatteryPassportRepository batteryPassportRepository;
+
+    public BatteryPassportService(BatteryPassportRepository batteryPassportRepository) {
+        this.batteryPassportRepository = batteryPassportRepository;
     }
 
     public List<BatteryPassportDto> findAll() {
-        return mockData();
+        return batteryPassportRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public BatteryPassportDto findById(UUID batteryId) {
-        return new BatteryPassportDto(batteryId, "LG에너지솔루션", "리튬이온", "77.4kWh",
-                new BigDecimal("92.5"), 320, new BigDecimal("28.4"), LocalDate.now().minusMonths(1),
-                UUID.randomUUID(), "1", 680, 1000, "양호", "재사용(EV 재제조)급",
-                new BigDecimal("95.0"), "{\"unusable\":0.05,\"reusable\":0.9,\"remanufacturable\":0.05}");
+        return toDto(batteryPassportRepository.findById(batteryId)
+                .orElseThrow(() -> new EntityNotFoundException("Battery passport not found: " + batteryId)));
     }
 
     public BatteryPassportDto create(BatteryPassportDto request) {
-        return new BatteryPassportDto(UUID.randomUUID(), request.manufacturer(), request.batteryType(),
-                request.ratedCapacity(), request.sohScore(), request.chargeCycles(), request.currentTemp(),
-                request.lastInspectedAt(), request.carId(), request.batteryLevel(), request.remainingCycles(),
-                request.totalCycles(), request.reuseStatus(), request.gradeDetail(), request.reliabilityScore(),
-                request.reuseProbabilities());
+        BatteryPassportEntity entity = BatteryPassportEntity.builder()
+                .manufacturer(request.manufacturer())
+                .batteryType(request.batteryType())
+                .ratedCapacity(request.ratedCapacity())
+                .sohScore(request.sohScore())
+                .chargeCycles(request.chargeCycles())
+                .currentTemp(request.currentTemp())
+                .lastInspectedAt(request.lastInspectedAt())
+                .carId(request.carId())
+                .batteryLevel(request.batteryLevel() != null ? request.batteryLevel() : "미등록")
+                .remainingCycles(request.remainingCycles())
+                .totalCycles(request.totalCycles())
+                .reuseStatus(request.reuseStatus())
+                .gradeDetail(request.gradeDetail())
+                .reliabilityScore(request.reliabilityScore())
+                .reuseProbabilities(request.reuseProbabilities())
+                .voltage(request.voltage())
+                .current(request.current())
+                .rul(request.rul())
+                .manufacturedAt(request.manufacturedAt())
+                .installedAt(request.installedAt())
+                .build();
+        return toDto(batteryPassportRepository.save(entity));
     }
 
     public BatteryPassportDto update(UUID batteryId, BatteryPassportDto request) {
-        return new BatteryPassportDto(batteryId, request.manufacturer(), request.batteryType(),
-                request.ratedCapacity(), request.sohScore(), request.chargeCycles(), request.currentTemp(),
-                request.lastInspectedAt(), request.carId(), request.batteryLevel(), request.remainingCycles(),
-                request.totalCycles(), request.reuseStatus(), request.gradeDetail(), request.reliabilityScore(),
-                request.reuseProbabilities());
+        BatteryPassportEntity entity = batteryPassportRepository.findById(batteryId)
+                .orElseThrow(() -> new EntityNotFoundException("Battery passport not found: " + batteryId));
+        entity.setManufacturer(request.manufacturer());
+        entity.setBatteryType(request.batteryType());
+        entity.setRatedCapacity(request.ratedCapacity());
+        entity.setSohScore(request.sohScore());
+        entity.setChargeCycles(request.chargeCycles());
+        entity.setCurrentTemp(request.currentTemp());
+        entity.setLastInspectedAt(request.lastInspectedAt());
+        entity.setCarId(request.carId());
+        entity.setBatteryLevel(request.batteryLevel());
+        entity.setRemainingCycles(request.remainingCycles());
+        entity.setTotalCycles(request.totalCycles());
+        entity.setReuseStatus(request.reuseStatus());
+        entity.setGradeDetail(request.gradeDetail());
+        entity.setReliabilityScore(request.reliabilityScore());
+        entity.setReuseProbabilities(request.reuseProbabilities());
+        entity.setVoltage(request.voltage());
+        entity.setCurrent(request.current());
+        entity.setRul(request.rul());
+        entity.setManufacturedAt(request.manufacturedAt());
+        entity.setInstalledAt(request.installedAt());
+        return toDto(batteryPassportRepository.save(entity));
     }
 
     public void delete(UUID batteryId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        batteryPassportRepository.deleteById(batteryId);
+    }
+
+    private BatteryPassportDto toDto(BatteryPassportEntity entity) {
+        return new BatteryPassportDto(
+                entity.getBatteryId(),
+                entity.getManufacturer(),
+                entity.getBatteryType(),
+                entity.getRatedCapacity(),
+                entity.getSohScore(),
+                entity.getChargeCycles(),
+                entity.getCurrentTemp(),
+                entity.getLastInspectedAt(),
+                entity.getCarId(),
+                entity.getBatteryLevel(),
+                entity.getRemainingCycles(),
+                entity.getTotalCycles(),
+                entity.getReuseStatus(),
+                entity.getGradeDetail(),
+                entity.getReliabilityScore(),
+                entity.getReuseProbabilities(),
+                entity.getVoltage(),
+                entity.getCurrent(),
+                entity.getRul(),
+                entity.getManufacturedAt(),
+                entity.getInstalledAt()
+        );
     }
 }

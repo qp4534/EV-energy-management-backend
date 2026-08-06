@@ -1,6 +1,9 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.NoticeDto;
+import com.ev_energy_management.backend.entity.NoticeEntity;
+import com.ev_energy_management.backend.repository.NoticeRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -10,35 +13,67 @@ import java.util.UUID;
 @Service
 public class NoticeService {
 
-    private List<NoticeDto> mockData() {
-        return List.of(
-                new NoticeDto(UUID.randomUUID(), "정기 점검 안내", "이번 주 토요일 시스템 점검이 있습니다.",
-                        true, OffsetDateTime.now(), UUID.randomUUID(), false),
-                new NoticeDto(UUID.randomUUID(), "신규 기능 안내", "배터리 진단 리포트 기능이 추가되었습니다.",
-                        false, OffsetDateTime.now(), UUID.randomUUID(), true)
-        );
+    private final NoticeRepository noticeRepository;
+
+    public NoticeService(NoticeRepository noticeRepository) {
+        this.noticeRepository = noticeRepository;
     }
 
     public List<NoticeDto> findAll() {
-        return mockData();
+        return noticeRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public NoticeDto findById(UUID noticeId) {
-        return new NoticeDto(noticeId, "정기 점검 안내", "이번 주 토요일 시스템 점검이 있습니다.",
-                true, OffsetDateTime.now(), UUID.randomUUID(), false);
+        return toDto(noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new EntityNotFoundException("Notice not found: " + noticeId)));
     }
 
     public NoticeDto create(NoticeDto request) {
-        return new NoticeDto(UUID.randomUUID(), request.title(), request.content(), request.isPinned(),
-                OffsetDateTime.now(), request.userId(), false);
+        NoticeEntity entity = NoticeEntity.builder()
+                .title(request.title())
+                .content(request.content())
+                .isPinned(request.isPinned() != null ? request.isPinned() : false)
+                .userId(request.userId())
+                .isRead(false)
+                .isImportant(request.isImportant() != null ? request.isImportant() : false)
+                .targetRole(request.targetRole())
+                .viewCount(0)
+                .build();
+        return toDto(noticeRepository.save(entity));
     }
 
     public NoticeDto update(UUID noticeId, NoticeDto request) {
-        return new NoticeDto(noticeId, request.title(), request.content(), request.isPinned(),
-                request.createdAt(), request.userId(), request.isRead());
+        NoticeEntity entity = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new EntityNotFoundException("Notice not found: " + noticeId));
+        entity.setTitle(request.title());
+        entity.setContent(request.content());
+        entity.setIsPinned(request.isPinned());
+        entity.setUserId(request.userId());
+        entity.setIsRead(request.isRead());
+        entity.setIsImportant(request.isImportant());
+        entity.setTargetRole(request.targetRole());
+        entity.setViewCount(request.viewCount());
+        entity.setUpdatedAt(OffsetDateTime.now());
+        return toDto(noticeRepository.save(entity));
     }
 
     public void delete(UUID noticeId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        noticeRepository.deleteById(noticeId);
+    }
+
+    private NoticeDto toDto(NoticeEntity entity) {
+        return new NoticeDto(
+                entity.getNoticeId(),
+                entity.getTitle(),
+                entity.getContent(),
+                entity.getIsPinned(),
+                entity.getCreatedAt(),
+                entity.getUserId(),
+                entity.getIsRead(),
+                entity.getIsImportant(),
+                entity.getTargetRole(),
+                entity.getViewCount(),
+                entity.getUpdatedAt()
+        );
     }
 }

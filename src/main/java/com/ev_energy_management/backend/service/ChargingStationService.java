@@ -1,44 +1,81 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.ChargingStationDto;
+import com.ev_energy_management.backend.entity.ChargingStationEntity;
+import com.ev_energy_management.backend.repository.ChargingStationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ChargingStationService {
 
-    private List<ChargingStationDto> mockData() {
-        return List.of(
-                new ChargingStationDto(UUID.randomUUID(), "서울특별시", "서울시 강남구 테헤란로 123",
-                        new BigDecimal("37.5012345"), new BigDecimal("127.0398765")),
-                new ChargingStationDto(UUID.randomUUID(), "경기도", "경기도 성남시 분당구 판교역로 456",
-                        new BigDecimal("37.3947654"), new BigDecimal("127.1112345"))
-        );
+    private final ChargingStationRepository chargingStationRepository;
+
+    public ChargingStationService(ChargingStationRepository chargingStationRepository) {
+        this.chargingStationRepository = chargingStationRepository;
     }
 
     public List<ChargingStationDto> findAll() {
-        return mockData();
+        return chargingStationRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public ChargingStationDto findById(UUID chargeId) {
-        return new ChargingStationDto(chargeId, "서울특별시", "서울시 강남구 테헤란로 123",
-                new BigDecimal("37.5012345"), new BigDecimal("127.0398765"));
+        return toDto(chargingStationRepository.findById(chargeId)
+                .orElseThrow(() -> new EntityNotFoundException("Charging station not found: " + chargeId)));
     }
 
     public ChargingStationDto create(ChargingStationDto request) {
-        return new ChargingStationDto(UUID.randomUUID(), request.region(), request.address(),
-                request.latitude(), request.longitude());
+        ChargingStationEntity entity = ChargingStationEntity.builder()
+                .region(request.region())
+                .address(request.address())
+                .latitude(request.latitude())
+                .longitude(request.longitude())
+                .name(request.name())
+                .slowChargerCount(request.slowChargerCount() != null ? request.slowChargerCount() : 0)
+                .fastChargerCount(request.fastChargerCount() != null ? request.fastChargerCount() : 0)
+                .availableCount(request.availableCount() != null ? request.availableCount() : 0)
+                .minQueueLength(request.minQueueLength())
+                .minWaitingTime(request.minWaitingTime())
+                .build();
+        return toDto(chargingStationRepository.save(entity));
     }
 
     public ChargingStationDto update(UUID chargeId, ChargingStationDto request) {
-        return new ChargingStationDto(chargeId, request.region(), request.address(),
-                request.latitude(), request.longitude());
+        ChargingStationEntity entity = chargingStationRepository.findById(chargeId)
+                .orElseThrow(() -> new EntityNotFoundException("Charging station not found: " + chargeId));
+        entity.setRegion(request.region());
+        entity.setAddress(request.address());
+        entity.setLatitude(request.latitude());
+        entity.setLongitude(request.longitude());
+        entity.setName(request.name());
+        entity.setSlowChargerCount(request.slowChargerCount());
+        entity.setFastChargerCount(request.fastChargerCount());
+        entity.setAvailableCount(request.availableCount());
+        entity.setMinQueueLength(request.minQueueLength());
+        entity.setMinWaitingTime(request.minWaitingTime());
+        return toDto(chargingStationRepository.save(entity));
     }
 
     public void delete(UUID chargeId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        chargingStationRepository.deleteById(chargeId);
+    }
+
+    private ChargingStationDto toDto(ChargingStationEntity entity) {
+        return new ChargingStationDto(
+                entity.getChargeId(),
+                entity.getRegion(),
+                entity.getAddress(),
+                entity.getLatitude(),
+                entity.getLongitude(),
+                entity.getName(),
+                entity.getSlowChargerCount(),
+                entity.getFastChargerCount(),
+                entity.getAvailableCount(),
+                entity.getMinQueueLength(),
+                entity.getMinWaitingTime()
+        );
     }
 }

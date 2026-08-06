@@ -1,43 +1,66 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.BatchJobDto;
+import com.ev_energy_management.backend.entity.BatchJobEntity;
+import com.ev_energy_management.backend.repository.BatchJobRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
 public class BatchJobService {
 
-    private List<BatchJobDto> mockData() {
-        return List.of(
-                new BatchJobDto("BATCH_DIAGNOSIS", "배터리 진단 배치", "매일 03:00", "정상",
-                        OffsetDateTime.now().minusHours(6), OffsetDateTime.now().plusHours(18)),
-                new BatchJobDto("BATCH_REPORT", "월간 리포트 생성 배치", "매월 1일", "정상",
-                        OffsetDateTime.now().minusDays(5), OffsetDateTime.now().plusDays(25))
-        );
+    private final BatchJobRepository batchJobRepository;
+
+    public BatchJobService(BatchJobRepository batchJobRepository) {
+        this.batchJobRepository = batchJobRepository;
     }
 
     public List<BatchJobDto> findAll() {
-        return mockData();
+        return batchJobRepository.findAll().stream().map(this::toDto).toList();
     }
 
     public BatchJobDto findById(String jobId) {
-        return new BatchJobDto(jobId, "배터리 진단 배치", "매일 03:00", "정상",
-                OffsetDateTime.now().minusHours(6), OffsetDateTime.now().plusHours(18));
+        return toDto(batchJobRepository.findById(jobId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch job not found: " + jobId)));
     }
 
     public BatchJobDto create(BatchJobDto request) {
-        return new BatchJobDto(request.jobId(), request.jobName(), request.cycle(), request.status(),
-                request.lastRunAt(), request.nextRunAt());
+        BatchJobEntity entity = BatchJobEntity.builder()
+                .jobId(request.jobId())
+                .jobName(request.jobName())
+                .cycle(request.cycle())
+                .status(request.status() != null ? request.status() : "정상")
+                .lastRunAt(request.lastRunAt())
+                .nextRunAt(request.nextRunAt())
+                .build();
+        return toDto(batchJobRepository.save(entity));
     }
 
     public BatchJobDto update(String jobId, BatchJobDto request) {
-        return new BatchJobDto(jobId, request.jobName(), request.cycle(), request.status(),
-                request.lastRunAt(), request.nextRunAt());
+        BatchJobEntity entity = batchJobRepository.findById(jobId)
+                .orElseThrow(() -> new EntityNotFoundException("Batch job not found: " + jobId));
+        entity.setJobName(request.jobName());
+        entity.setCycle(request.cycle());
+        entity.setStatus(request.status());
+        entity.setLastRunAt(request.lastRunAt());
+        entity.setNextRunAt(request.nextRunAt());
+        return toDto(batchJobRepository.save(entity));
     }
 
     public void delete(String jobId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+        batchJobRepository.deleteById(jobId);
+    }
+
+    private BatchJobDto toDto(BatchJobEntity entity) {
+        return new BatchJobDto(
+                entity.getJobId(),
+                entity.getJobName(),
+                entity.getCycle(),
+                entity.getStatus(),
+                entity.getLastRunAt(),
+                entity.getNextRunAt()
+        );
     }
 }

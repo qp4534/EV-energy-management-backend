@@ -1,38 +1,58 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.NotificationChannelDto;
+import com.ev_energy_management.backend.entity.NotificationChannelEntity;
+import com.ev_energy_management.backend.repository.NotificationChannelRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class NotificationChannelService {
 
-    private List<NotificationChannelDto> mockData() {
-        return List.of(
-                new NotificationChannelDto("SLACK", "Slack 알림", true, OffsetDateTime.now()),
-                new NotificationChannelDto("SMS", "SMS 알림", false, OffsetDateTime.now())
-        );
+    private final NotificationChannelRepository notificationChannelRepository;
+
+    public NotificationChannelService(NotificationChannelRepository notificationChannelRepository) {
+        this.notificationChannelRepository = notificationChannelRepository;
     }
 
     public List<NotificationChannelDto> findAll() {
-        return mockData();
+        return notificationChannelRepository.findAll().stream().map(this::toDto).toList();
     }
 
-    public NotificationChannelDto findById(String channelId) {
-        return new NotificationChannelDto(channelId, "Slack 알림", true, OffsetDateTime.now());
+    public NotificationChannelDto findById(UUID channelId) {
+        return toDto(notificationChannelRepository.findById(channelId)
+                .orElseThrow(() -> new EntityNotFoundException("Notification channel not found: " + channelId)));
     }
 
     public NotificationChannelDto create(NotificationChannelDto request) {
-        return new NotificationChannelDto(request.channelId(), request.channelName(), request.isActive(), OffsetDateTime.now());
+        NotificationChannelEntity entity = NotificationChannelEntity.builder()
+                .channelName(request.channelName())
+                .isActive(request.isActive() != null ? request.isActive() : true)
+                .build();
+        return toDto(notificationChannelRepository.save(entity));
     }
 
-    public NotificationChannelDto update(String channelId, NotificationChannelDto request) {
-        return new NotificationChannelDto(channelId, request.channelName(), request.isActive(), OffsetDateTime.now());
+    public NotificationChannelDto update(UUID channelId, NotificationChannelDto request) {
+        NotificationChannelEntity entity = notificationChannelRepository.findById(channelId)
+                .orElseThrow(() -> new EntityNotFoundException("Notification channel not found: " + channelId));
+        entity.setChannelName(request.channelName());
+        entity.setIsActive(request.isActive());
+        return toDto(notificationChannelRepository.save(entity));
     }
 
-    public void delete(String channelId) {
-        // TODO: ERD 확정 후 실제 삭제 로직 연결
+    public void delete(UUID channelId) {
+        notificationChannelRepository.deleteById(channelId);
+    }
+
+    private NotificationChannelDto toDto(NotificationChannelEntity entity) {
+        return new NotificationChannelDto(
+                entity.getChannelId(),
+                entity.getChannelName(),
+                entity.getIsActive(),
+                entity.getUpdatedAt()
+        );
     }
 }

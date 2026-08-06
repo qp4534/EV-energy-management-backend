@@ -10,5 +10,9 @@ public record NoticeDto(
         Boolean isPinned,
         OffsetDateTime createdAt,
         UUID userId,
-        Boolean isRead
+        Boolean isRead,
+        Boolean isImportant,
+        String targetRole,
+        Integer viewCount,
+        OffsetDateTime updatedAt
 ) {}
