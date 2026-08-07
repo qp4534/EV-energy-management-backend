@@ -41,7 +41,7 @@ public class AiReportEntity {
     @Column(name = "`created_at`", updatable = false)
     private OffsetDateTime createdAt;
 
-    @Column(name = "`car_id`", nullable = false)
+    @Column(name = "`car_id`")
     private UUID carId;
 
     @Column(name = "`anomaly_id`")
