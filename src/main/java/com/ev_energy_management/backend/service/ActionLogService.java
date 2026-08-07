@@ -2,29 +2,44 @@ package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.ActionLogDto;
 import com.ev_energy_management.backend.entity.ActionLogEntity;
+import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.ActionLogRepository;
+import com.ev_energy_management.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ActionLogService {
 
     private final ActionLogRepository actionLogRepository;
+    private final UserRepository userRepository;
 
-    public ActionLogService(ActionLogRepository actionLogRepository) {
+    public ActionLogService(ActionLogRepository actionLogRepository, UserRepository userRepository) {
         this.actionLogRepository = actionLogRepository;
+        this.userRepository = userRepository;
     }
 
     public List<ActionLogDto> findAll() {
-        return actionLogRepository.findAll().stream().map(this::toDto).toList();
+        List<ActionLogEntity> entities = actionLogRepository.findAll();
+
+        // 관리자 로그 화면에 이용자/관리자 UUID 대신 이름을 보여주기 위해 한 번에 조회(N+1 방지)
+        List<UUID> userIds = entities.stream().map(ActionLogEntity::getUserId).distinct().toList();
+        Map<UUID, String> userNamesById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(UserEntity::getUserId, UserEntity::getName));
+
+        return entities.stream().map(entity -> toDto(entity, userNamesById)).toList();
     }
 
     public ActionLogDto findById(UUID actionId) {
-        return toDto(actionLogRepository.findById(actionId)
-                .orElseThrow(() -> new EntityNotFoundException("Action log not found: " + actionId)));
+        ActionLogEntity entity = actionLogRepository.findById(actionId)
+                .orElseThrow(() -> new EntityNotFoundException("Action log not found: " + actionId));
+        String userName = userRepository.findById(entity.getUserId()).map(UserEntity::getName).orElse(null);
+        return toDto(entity, Map.of(entity.getUserId(), userName == null ? "" : userName));
     }
 
     public ActionLogDto create(ActionLogDto request) {
@@ -35,7 +50,7 @@ public class ActionLogService {
                 .detail(request.detail())
                 .userId(request.userId())
                 .build();
-        return toDto(actionLogRepository.save(entity));
+        return findById(actionLogRepository.save(entity).getActionId());
     }
 
     public ActionLogDto update(UUID actionId, ActionLogDto request) {
@@ -46,14 +61,14 @@ public class ActionLogService {
         entity.setTargetId(request.targetId());
         entity.setDetail(request.detail());
         entity.setUserId(request.userId());
-        return toDto(actionLogRepository.save(entity));
+        return findById(actionLogRepository.save(entity).getActionId());
     }
 
     public void delete(UUID actionId) {
         actionLogRepository.deleteById(actionId);
     }
 
-    private ActionLogDto toDto(ActionLogEntity entity) {
+    private ActionLogDto toDto(ActionLogEntity entity, Map<UUID, String> userNamesById) {
         return new ActionLogDto(
                 entity.getActionId(),
                 entity.getActionType(),
@@ -61,7 +76,8 @@ public class ActionLogService {
                 entity.getTargetId(),
                 entity.getDetail(),
                 entity.getCreatedAt(),
-                entity.getUserId()
+                entity.getUserId(),
+                userNamesById.get(entity.getUserId())
         );
     }
 }
