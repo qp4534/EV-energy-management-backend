@@ -6,6 +6,7 @@ import com.ev_energy_management.backend.exception.AiServiceUnavailableException;
 import com.ev_energy_management.backend.exception.InvalidRequestException;
 import com.ev_energy_management.backend.security.JwtAuthenticationFilter;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
+import com.ev_energy_management.backend.security.TokenBlacklistService;
 import com.ev_energy_management.backend.service.ChatService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,8 @@ class ChatControllerTest {
     private JwtTokenProvider jwtTokenProvider;
     @MockitoBean
     private ChatService chatService;
+    @MockitoBean
+    private TokenBlacklistService tokenBlacklistService;
 
     @Test
     void chatRequiresJwt() throws Exception {

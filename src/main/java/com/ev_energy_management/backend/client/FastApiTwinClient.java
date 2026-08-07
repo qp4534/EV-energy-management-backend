@@ -3,6 +3,7 @@ package com.ev_energy_management.backend.client;
 import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
 import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -17,6 +18,7 @@ public class FastApiTwinClient {
 
     private final RestClient restClient;
 
+    @Autowired
     public FastApiTwinClient(@Value("${fastapi.base-url}") String baseUrl) {
         this(RestClient.builder().baseUrl(baseUrl).build());
     }
