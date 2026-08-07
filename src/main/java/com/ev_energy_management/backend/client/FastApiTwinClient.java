@@ -18,11 +18,7 @@ public class FastApiTwinClient {
     private final RestClient restClient;
 
     public FastApiTwinClient(@Value("${fastapi.base-url}") String baseUrl) {
-        this(RestClient.builder().baseUrl(baseUrl).build());
-    }
-
-    FastApiTwinClient(RestClient restClient) {
-        this.restClient = restClient;
+        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
     public FastApiTwinFrameResponse evaluate(UUID vehicleId, BmsTwinSampleRequest request) {
