@@ -35,7 +35,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // /api/auth/** 외 나머지 도메인 API(cars, chargers, notices 등)는 인증/인가 정책이
+    // 인증 API와 챗봇 API 외 나머지 도메인 API(cars, chargers, notices 등)는 인증/인가 정책이
     // 아직 확정되지 않아 임시로 전체 허용한다. 실제 인증이 필요한 범위가 정해지면 이 설정을 교체한다.
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,6 +51,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
+                        .requestMatchers("/api/v1/chat/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -1,12 +1,13 @@
 package com.ev_energy_management.backend.dto;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 public record AiReportDto(
         UUID reportId,
         String title,
-        String reportData,
+        Map<String, Object> reportData,
         String reportType,
         OffsetDateTime createdAt,
         UUID carId,
