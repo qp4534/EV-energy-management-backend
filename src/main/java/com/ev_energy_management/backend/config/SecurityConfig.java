@@ -35,8 +35,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // 인증 API와 챗봇 API 외 나머지 도메인 API(cars, chargers, notices 등)는 인증/인가 정책이
-    // 아직 확정되지 않아 임시로 전체 허용한다. 실제 인증이 필요한 범위가 정해지면 이 설정을 교체한다.
+    // 도메인 API(cars, chargers, notices 등) 전부 로그인(유효한 JWT)이 있어야 호출 가능하다.
+    // 관리자/관제자 role별 세분화는 아직 없음 - JwtAuthenticationFilter가 인증된 사용자 전부에게
+    // 하드코딩된 ROLE_USER 하나만 부여하고 있어서, role별 제한을 하려면 그것부터 실제 role claim을
+    // 반영하도록 고쳐야 한다(후속 작업).
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -49,13 +51,15 @@ public class SecurityConfig {
                     response.getWriter().write(UNAUTHENTICATED_BODY);
                 }))
                 .authorizeHttpRequests(auth -> auth
+                        // CORS preflight는 인증 헤더 없이 오므로 막으면 브라우저에서 모든 API가 CORS 에러로 실패한다.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 쿠버네티스 liveness/readiness probe용 - management.endpoints.web.exposure.include=health 참고.
+                        .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
                                 "/api/auth/email/send-code", "/api/auth/email/verify-code",
                                 "/api/auth/find-email", "/api/auth/password/reset/send-code",
                                 "/api/auth/password/reset").permitAll()
-                        .requestMatchers("/api/auth/**").authenticated()
-                        .requestMatchers("/api/v1/chat/**").authenticated()
-                        .anyRequest().permitAll())
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
