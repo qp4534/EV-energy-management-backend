@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +56,20 @@ public class JwtTokenProvider {
             UUID userId = UUID.fromString(claims.getSubject());
             String role = claims.get(ROLE_CLAIM, String.class);
             return Optional.of(new AuthenticatedUser(userId, role));
+        } catch (JwtException | IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    // 로그아웃 시 블랙리스트 TTL 계산용 (토큰이 자연 만료될 때까지 남은 시간).
+    public Optional<Instant> getExpiration(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return Optional.of(claims.getExpiration().toInstant());
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
