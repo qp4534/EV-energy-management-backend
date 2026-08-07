@@ -288,7 +288,7 @@ CREATE TABLE "AI_REPORTS" (
 	"report_data"	JSONB		NOT NULL,
 	"report_type"	VARCHAR(10)	DEFAULT '월간보고서'	NOT NULL,
 	"created_at"	TIMESTAMPTZ	DEFAULT CURRENT_TIMESTAMP	NULL,
-	"car_id"	UUID		NOT NULL,
+	"car_id"	UUID		NULL,
 	"anomaly_id"	UUID		NULL,
 	"is_read"	BOOLEAN	DEFAULT FALSE	NOT NULL
 );
