@@ -1,9 +1,12 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailResponse;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
+import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
 import com.ev_energy_management.backend.dto.auth.ProfileUpdateRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.entity.LoginLogEntity;
@@ -74,6 +77,59 @@ public class AuthService {
         this.tokenBlacklistService = tokenBlacklistService;
         this.auditLogService = auditLogService;
         this.emailVerificationService = emailVerificationService;
+    }
+
+    // 아이디(이메일) 찾기: 이름+생년월일+역할로 후보를 좁힌 뒤, 전화번호는 숫자만 남겨서
+    // 비교한다(가입 시점에 따라 "010-1234-5678"/"01012345678"처럼 하이픈 유무가 달라질 수 있어서
+    // DB에 저장된 원본 형식에 의존하지 않기 위함). 탈퇴한 계정은 애초에 후보에서 제외한다.
+    public FindEmailResponse findEmail(FindEmailRequest request) {
+        String requestedDigits = digitsOnly(request.phone());
+        UserEntity user = userRepository
+                .findByNameAndBirthAndRoleAndIsDeletedFalse(request.name(), request.birth(), request.role())
+                .stream()
+                .filter(candidate -> digitsOnly(candidate.getPhone()).equals(requestedDigits))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("일치하는 계정을 찾을 수 없습니다."));
+        return new FindEmailResponse(user.getName(), user.getEmail());
+    }
+
+    private static String digitsOnly(String value) {
+        return value == null ? "" : value.replaceAll("\\D", "");
+    }
+
+    // 비밀번호 재설정 1단계: 계정이 실제로 존재하고 탈퇴하지 않았을 때만 인증코드를 보낸다.
+    // 코드 발급/저장/발송 자체는 회원가입 때와 같은 EmailVerificationService를 그대로 재사용한다.
+    public void requestPasswordReset(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("가입된 계정을 찾을 수 없습니다."));
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            throw new AccountDeletedException("탈퇴한 계정입니다.");
+        }
+        emailVerificationService.sendCode(email);
+    }
+
+    // 비밀번호 재설정 2단계: /api/auth/email/verify-code로 인증을 마쳐야만 성공한다
+    // (isVerified 플래그가 곧 "본인 확인 완료" 증표). 성공하면 로그인 실패 잠금도 같이 풀어준다
+    // - 비번을 잊어서 여러 번 틀려 잠긴 계정이 이메일 인증으로 복구하는 흐름을 자연스럽게 포함.
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        if (!emailVerificationService.isVerified(request.email())) {
+            throw new EmailNotVerifiedException("이메일 인증을 먼저 완료해주세요.");
+        }
+        if (!PASSWORD_POLICY.matcher(request.newPassword()).matches()) {
+            throw new InvalidPasswordException(PASSWORD_POLICY_MESSAGE);
+        }
+        UserEntity user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new EntityNotFoundException("가입된 계정을 찾을 수 없습니다."));
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setLoginFailed(0);
+        user.setIsLocked(false);
+        user.setLockedAt(null);
+        userRepository.save(user);
+
+        emailVerificationService.clearVerified(request.email());
+        auditLogService.log(user.getUserId(), "PASSWORD_RESET", "USER", user.getUserId(), null);
     }
 
     // 이메일 인증코드 발송 전에도 같은 규칙으로 미리 막아서, 사용자가 인증까지 다 끝낸

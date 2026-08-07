@@ -1,9 +1,12 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailResponse;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
+import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
 import com.ev_energy_management.backend.dto.auth.ProfileUpdateRequest;
 import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
@@ -41,6 +44,23 @@ public class AuthController {
     @PostMapping("/email/verify-code")
     public ResponseEntity<Void> verifyEmailCode(@RequestBody VerifyEmailCodeRequest request) {
         emailVerificationService.verifyCode(request.email(), request.code());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/find-email")
+    public FindEmailResponse findEmail(@RequestBody FindEmailRequest request) {
+        return authService.findEmail(request);
+    }
+
+    @PostMapping("/password/reset/send-code")
+    public ResponseEntity<Void> sendPasswordResetCode(@RequestBody SendEmailCodeRequest request) {
+        authService.requestPasswordReset(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<Void> resetPassword(@RequestBody PasswordResetRequest request) {
+        authService.resetPassword(request);
         return ResponseEntity.noContent().build();
     }
 

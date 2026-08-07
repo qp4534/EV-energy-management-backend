@@ -50,7 +50,9 @@ public class SecurityConfig {
                 }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
-                                "/api/auth/email/send-code", "/api/auth/email/verify-code").permitAll()
+                                "/api/auth/email/send-code", "/api/auth/email/verify-code",
+                                "/api/auth/find-email", "/api/auth/password/reset/send-code",
+                                "/api/auth/password/reset").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
                         .requestMatchers("/api/v1/chat/**").authenticated()
                         .anyRequest().permitAll())

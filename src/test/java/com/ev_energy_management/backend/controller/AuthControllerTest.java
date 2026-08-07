@@ -2,14 +2,19 @@ package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.config.SecurityConfig;
 import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailResponse;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
+import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
 import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.dto.auth.VerifyEmailCodeRequest;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
+import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
 import com.ev_energy_management.backend.exception.InvalidVerificationCodeException;
+import jakarta.persistence.EntityNotFoundException;
 import com.ev_energy_management.backend.security.JwtAuthenticationFilter;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
 import com.ev_energy_management.backend.security.TokenBlacklistService;
@@ -173,6 +178,56 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new DeleteAccountRequest("password"))))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void findEmailReturns200() throws Exception {
+        FindEmailRequest request = new FindEmailRequest("홍길동", "010-0000-0000", LocalDate.of(1990, 1, 1), "관제자");
+        when(authService.findEmail(any())).thenReturn(new FindEmailResponse("홍길동", "found@user.com"));
+
+        mockMvc.perform(post("/api/auth/find-email")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void findEmailWithNoMatchReturns404() throws Exception {
+        doThrow(new EntityNotFoundException("일치하는 계정을 찾을 수 없습니다.")).when(authService).findEmail(any());
+
+        mockMvc.perform(post("/api/auth/find-email")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new FindEmailRequest("홍길동", "010-0000-0000", LocalDate.of(1990, 1, 1), "관제자"))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void sendPasswordResetCodeReturns204() throws Exception {
+        mockMvc.perform(post("/api/auth/password/reset/send-code")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new SendEmailCodeRequest("reset@user.com"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void resetPasswordReturns204() throws Exception {
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new PasswordResetRequest("reset@user.com", "New-password1!"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void resetPasswordWithoutVerificationReturns400() throws Exception {
+        doThrow(new EmailNotVerifiedException("이메일 인증을 먼저 완료해주세요.")).when(authService).resetPassword(any());
+
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new PasswordResetRequest("reset@user.com", "New-password1!"))))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
