@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private static final String BEARER_PREFIX = "Bearer ";
+
     private final AuthService authService;
 
     public AuthController(AuthService authService) {
@@ -36,8 +38,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal AuthenticatedUser user) {
-        authService.logout(user);
+    public ResponseEntity<Void> logout(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        authService.logout(user, authorizationHeader.substring(BEARER_PREFIX.length()));
         return ResponseEntity.noContent().build();
     }
 

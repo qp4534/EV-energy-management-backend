@@ -21,9 +21,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, TokenBlacklistService tokenBlacklistService) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Override
@@ -35,15 +37,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(AUTH_HEADER);
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             String token = header.substring(BEARER_PREFIX.length());
-            Optional<AuthenticatedUser> authenticatedUser = jwtTokenProvider.parseToken(token);
-            authenticatedUser.ifPresent(user -> {
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            });
+            if (!tokenBlacklistService.isBlacklisted(token)) {
+                Optional<AuthenticatedUser> authenticatedUser = jwtTokenProvider.parseToken(token);
+                authenticatedUser.ifPresent(user -> {
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                });
+            }
         }
-        // Missing/invalid tokens simply leave the request unauthenticated instead of
-        // rejecting it here, so today's permitAll endpoints keep working unauthenticated.
+        // Missing/invalid/blacklisted(logged-out) tokens simply leave the request
+        // unauthenticated instead of rejecting it here, so today's permitAll endpoints
+        // keep working unauthenticated.
         filterChain.doFilter(request, response);
     }
 }
