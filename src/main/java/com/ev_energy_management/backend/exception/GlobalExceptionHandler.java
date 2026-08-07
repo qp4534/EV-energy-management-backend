@@ -80,6 +80,24 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(503, "AI_SERVICE_UNAVAILABLE", e.getMessage()));
     }
 
+    @ExceptionHandler(InvalidVerificationCodeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationCode(InvalidVerificationCodeException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "INVALID_VERIFICATION_CODE", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ErrorResponse> handleEmailNotVerified(EmailNotVerifiedException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "EMAIL_NOT_VERIFIED", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmailSendCooldownException.class)
+    public ResponseEntity<ErrorResponse> handleEmailSendCooldown(EmailSendCooldownException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ErrorResponse.of(429, "EMAIL_SEND_COOLDOWN", e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

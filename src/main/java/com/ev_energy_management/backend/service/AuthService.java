@@ -10,6 +10,7 @@ import com.ev_energy_management.backend.entity.TermAgreementEntity;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.exception.AccountLockedException;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
+import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
 import com.ev_energy_management.backend.exception.InvalidCredentialsException;
 import com.ev_energy_management.backend.exception.InvalidPasswordException;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
@@ -51,6 +52,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditLogService auditLogService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -59,7 +61,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            EmailVerificationService emailVerificationService
     ) {
         this.userRepository = userRepository;
         this.loginLogRepository = loginLogRepository;
@@ -68,15 +71,25 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenBlacklistService = tokenBlacklistService;
         this.auditLogService = auditLogService;
+        this.emailVerificationService = emailVerificationService;
+    }
+
+    // 이메일 인증코드 발송 전에도 같은 규칙으로 미리 막아서, 사용자가 인증까지 다 끝낸
+    // 뒤에야 "이미 가입된 이메일"이라는 걸 알게 되는 일이 없게 한다.
+    public void ensureEmailAvailable(String email) {
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
+        }
     }
 
     @Transactional
     public MeResponse signup(SignupRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
-        }
+        ensureEmailAvailable(request.email());
         if (!PASSWORD_POLICY.matcher(request.password()).matches()) {
             throw new InvalidPasswordException(PASSWORD_POLICY_MESSAGE);
+        }
+        if (!emailVerificationService.isVerified(request.email())) {
+            throw new EmailNotVerifiedException("이메일 인증을 먼저 완료해주세요.");
         }
 
         UserEntity entity = UserEntity.builder()
@@ -104,6 +117,7 @@ public class AuthService {
         }
 
         auditLogService.log(saved.getUserId(), "SIGNUP", "USER", saved.getUserId(), Map.of("role", saved.getRole()));
+        emailVerificationService.clearVerified(saved.getEmail());
 
         return toMeResponse(saved);
     }

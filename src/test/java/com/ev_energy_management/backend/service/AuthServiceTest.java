@@ -7,6 +7,7 @@ import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.exception.AccountLockedException;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
+import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
 import com.ev_energy_management.backend.exception.InvalidCredentialsException;
 import com.ev_energy_management.backend.exception.InvalidPasswordException;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
@@ -49,6 +50,8 @@ class AuthServiceTest {
     private TokenBlacklistService tokenBlacklistService;
     @Mock
     private AuditLogService auditLogService;
+    @Mock
+    private EmailVerificationService emailVerificationService;
 
     private AuthService authService;
 
@@ -56,7 +59,8 @@ class AuthServiceTest {
     void setUp() {
         authService = new AuthService(
                 userRepository, loginLogRepository, termAgreementRepository,
-                passwordEncoder, jwtTokenProvider, tokenBlacklistService, auditLogService
+                passwordEncoder, jwtTokenProvider, tokenBlacklistService, auditLogService,
+                emailVerificationService
         );
     }
 
@@ -68,6 +72,7 @@ class AuthServiceTest {
                 LocalDate.of(1990, 1, 1), "관제자", List.of("age", "service")
         );
         when(userRepository.findByEmail("new@user.com")).thenReturn(Optional.empty());
+        when(emailVerificationService.isVerified("new@user.com")).thenReturn(true);
         when(passwordEncoder.encode("Raw-password1!")).thenReturn("hashed-password");
         when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
             UserEntity entity = invocation.getArgument(0);
@@ -81,6 +86,35 @@ class AuthServiceTest {
         verify(passwordEncoder).encode("Raw-password1!");
         verify(termAgreementRepository, times(2)).save(any());
         verify(auditLogService).log(eq(userId), eq("SIGNUP"), eq("USER"), eq(userId), anyMap());
+        verify(emailVerificationService).clearVerified("new@user.com");
+    }
+
+    @Test
+    void signupRejectsUnverifiedEmail() {
+        SignupRequest request = new SignupRequest(
+                "unverified@user.com", "Raw-password1!", "홍길동", "010-0000-0000",
+                LocalDate.of(1990, 1, 1), "관제자", List.of()
+        );
+        when(userRepository.findByEmail("unverified@user.com")).thenReturn(Optional.empty());
+        when(emailVerificationService.isVerified("unverified@user.com")).thenReturn(false);
+
+        assertThrows(EmailNotVerifiedException.class, () -> authService.signup(request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void ensureEmailAvailableRejectsAlreadyRegisteredEmail() {
+        when(userRepository.findByEmail("dup@user.com"))
+                .thenReturn(Optional.of(UserEntity.builder().userId(UUID.randomUUID()).build()));
+
+        assertThrows(EmailAlreadyExistsException.class, () -> authService.ensureEmailAvailable("dup@user.com"));
+    }
+
+    @Test
+    void ensureEmailAvailableAllowsUnregisteredEmail() {
+        when(userRepository.findByEmail("fresh@user.com")).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> authService.ensureEmailAvailable("fresh@user.com"));
     }
 
     @Test
