@@ -6,7 +6,7 @@
 --      DB-level enum would mean an ALTER TYPE every time a value changes. Valid values are
 --      documented via COMMENT ON COLUMN and enforced with Java enums at the app layer instead.
 --   2. NOTIFICATIONS.risk_level had no value list in the export -> documented from its own comment
---   3. AI_REPORTS.report_type DEFAULT '월간보고서' didn't match its own value list ('월간','이상') -> DEFAULT '월간'
+--   3. AI_REPORTS.report_type uses the production values '월간보고서' and '이상'.
 --   4. BATTERY_PASSPORT.battery_level mixed unquoted numbers with a quoted string -> documented as '1','2','3','미등록'
 --   5. Added UNIQUE on BATTERY_PASSPORT.car_id (1 car : 1 battery, per ERD diagram)
 
@@ -286,7 +286,7 @@ CREATE TABLE "AI_REPORTS" (
 	"report_id"	UUID	DEFAULT gen_random_uuid()	NOT NULL,
 	"title"	VARCHAR(100)		NOT NULL,
 	"report_data"	JSONB		NOT NULL,
-	"report_type"	VARCHAR(10)	DEFAULT '월간'	NOT NULL,
+	"report_type"	VARCHAR(10)	DEFAULT '월간보고서'	NOT NULL,
 	"created_at"	TIMESTAMPTZ	DEFAULT CURRENT_TIMESTAMP	NULL,
 	"car_id"	UUID		NOT NULL,
 	"anomaly_id"	UUID		NULL,
@@ -294,7 +294,7 @@ CREATE TABLE "AI_REPORTS" (
 );
 
 COMMENT ON COLUMN "AI_REPORTS"."report_data" IS '프롬프트를 통해 나오는 데이터 값의 형식을 고정시켜야함.(렌더링을 위함)';
-COMMENT ON COLUMN "AI_REPORTS"."report_type" IS '월간, 이상';
+COMMENT ON COLUMN "AI_REPORTS"."report_type" IS '월간보고서, 이상';
 COMMENT ON COLUMN "AI_REPORTS"."is_read" IS 'TRUE, FALSE';
 
 CREATE TABLE "BATCH_JOB_LOGS" (

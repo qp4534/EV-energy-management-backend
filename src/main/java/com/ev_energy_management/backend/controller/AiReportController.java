@@ -39,6 +39,11 @@ public class AiReportController {
         return aiReportService.update(reportId, request);
     }
 
+    @PatchMapping("/{reportId}/read")
+    public AiReportDto markAiReportAsRead(@PathVariable UUID reportId) {
+        return aiReportService.markAsRead(reportId);
+    }
+
     @DeleteMapping("/{reportId}")
     public ResponseEntity<Void> deleteAiReport(@PathVariable UUID reportId) {
         aiReportService.delete(reportId);
