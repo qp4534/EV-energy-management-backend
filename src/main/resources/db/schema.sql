@@ -406,3 +406,9 @@ ALTER TABLE "BATTERY_PASSPORT" ADD CONSTRAINT "UQ_BATTERY_PASSPORT_CAR" UNIQUE (
 -- ddl-auto=none이라 이 파일은 RDS에 수동으로 적용됨. 회원가입 이메일 중복 방지용 제약이니
 -- 실제 DB에도 이 ALTER문을 한 번 수동 실행해야 함(AuthService.signup의 findByEmail 체크가 1차 방어선).
 ALTER TABLE "USER" ADD CONSTRAINT "UQ_USER_EMAIL" UNIQUE ("email");
+
+-- 회원 탈퇴(소프트 삭제)용 컬럼. 실제 row는 지우지 않고 플래그만 세운다(로그인/신규가입
+-- 이메일 중복체크에서는 여전히 "사용 중"으로 취급 - AuthService 참고). 이것도 ddl-auto=none이라
+-- 실제 RDS에는 수동으로 한 번 실행해야 함.
+ALTER TABLE "USER" ADD COLUMN "is_deleted" BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE "USER" ADD COLUMN "deleted_at" TIMESTAMPTZ NULL;

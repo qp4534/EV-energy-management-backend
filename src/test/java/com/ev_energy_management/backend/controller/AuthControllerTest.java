@@ -1,14 +1,20 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.config.SecurityConfig;
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
+import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
+import com.ev_energy_management.backend.dto.auth.VerifyEmailCodeRequest;
+import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
+import com.ev_energy_management.backend.exception.InvalidVerificationCodeException;
 import com.ev_energy_management.backend.security.JwtAuthenticationFilter;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
 import com.ev_energy_management.backend.security.TokenBlacklistService;
 import com.ev_energy_management.backend.service.AuthService;
+import com.ev_energy_management.backend.service.EmailVerificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +55,9 @@ class AuthControllerTest {
     // isBlacklisted()가 기본 false를 반환하도록 목으로 대체 (실제 Redis 연결 없이 슬라이스 테스트).
     @MockitoBean
     private TokenBlacklistService tokenBlacklistService;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
 
     private ObjectMapper objectMapper;
 
@@ -104,6 +114,64 @@ class AuthControllerTest {
         String token = jwtTokenProvider.generateToken(userId, "관제자");
 
         mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void sendEmailCodeReturns204() throws Exception {
+        mockMvc.perform(post("/api/auth/email/send-code")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new SendEmailCodeRequest("new@user.com"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void sendEmailCodeWithAlreadyRegisteredEmailReturns409() throws Exception {
+        doThrow(new EmailAlreadyExistsException("이미 가입된 이메일입니다."))
+                .when(authService).ensureEmailAvailable("dup@user.com");
+
+        mockMvc.perform(post("/api/auth/email/send-code")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new SendEmailCodeRequest("dup@user.com"))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void verifyEmailCodeReturns204() throws Exception {
+        mockMvc.perform(post("/api/auth/email/verify-code")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VerifyEmailCodeRequest("new@user.com", "123456"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void verifyEmailCodeWithWrongCodeReturns400() throws Exception {
+        doThrow(new InvalidVerificationCodeException("인증번호가 올바르지 않거나 만료되었습니다."))
+                .when(emailVerificationService).verifyCode(any(), any());
+
+        mockMvc.perform(post("/api/auth/email/verify-code")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new VerifyEmailCodeRequest("new@user.com", "000000"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteMeWithoutTokenReturns401() throws Exception {
+        mockMvc.perform(delete("/api/auth/me")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DeleteAccountRequest("password"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteMeWithValidTokenReturns204() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String token = jwtTokenProvider.generateToken(userId, "관제자");
+
+        mockMvc.perform(delete("/api/auth/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DeleteAccountRequest("password"))))
                 .andExpect(status().isNoContent());
     }
 

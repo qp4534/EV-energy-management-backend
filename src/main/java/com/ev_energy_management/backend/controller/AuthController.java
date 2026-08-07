@@ -1,12 +1,16 @@
 package com.ev_energy_management.backend.controller;
 
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
 import com.ev_energy_management.backend.dto.auth.ProfileUpdateRequest;
+import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
+import com.ev_energy_management.backend.dto.auth.VerifyEmailCodeRequest;
 import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.AuthService;
+import com.ev_energy_management.backend.service.EmailVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +24,24 @@ public class AuthController {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AuthService authService;
+    private final EmailVerificationService emailVerificationService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, EmailVerificationService emailVerificationService) {
         this.authService = authService;
+        this.emailVerificationService = emailVerificationService;
+    }
+
+    @PostMapping("/email/send-code")
+    public ResponseEntity<Void> sendEmailCode(@RequestBody SendEmailCodeRequest request) {
+        authService.ensureEmailAvailable(request.email());
+        emailVerificationService.sendCode(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/email/verify-code")
+    public ResponseEntity<Void> verifyEmailCode(@RequestBody VerifyEmailCodeRequest request) {
+        emailVerificationService.verifyCode(request.email(), request.code());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/signup")
@@ -54,5 +73,15 @@ public class AuthController {
     @PatchMapping("/me")
     public MeResponse updateMe(@AuthenticationPrincipal AuthenticatedUser user, @RequestBody ProfileUpdateRequest request) {
         return authService.updateProfile(user, request);
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody DeleteAccountRequest request
+    ) {
+        authService.deleteAccount(user, request, authorizationHeader.substring(BEARER_PREFIX.length()));
+        return ResponseEntity.noContent().build();
     }
 }

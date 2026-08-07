@@ -49,7 +49,8 @@ public class SecurityConfig {
                     response.getWriter().write(UNAUTHENTICATED_BODY);
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
+                                "/api/auth/email/send-code", "/api/auth/email/verify-code").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
                         .requestMatchers("/api/v1/chat/**").authenticated()
                         .anyRequest().permitAll())

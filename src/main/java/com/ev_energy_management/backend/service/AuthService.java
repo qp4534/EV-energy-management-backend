@@ -1,5 +1,6 @@
 package com.ev_energy_management.backend.service;
 
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
@@ -8,8 +9,10 @@ import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.entity.LoginLogEntity;
 import com.ev_energy_management.backend.entity.TermAgreementEntity;
 import com.ev_energy_management.backend.entity.UserEntity;
+import com.ev_energy_management.backend.exception.AccountDeletedException;
 import com.ev_energy_management.backend.exception.AccountLockedException;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
+import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
 import com.ev_energy_management.backend.exception.InvalidCredentialsException;
 import com.ev_energy_management.backend.exception.InvalidPasswordException;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
@@ -51,6 +54,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditLogService auditLogService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -59,7 +63,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            EmailVerificationService emailVerificationService
     ) {
         this.userRepository = userRepository;
         this.loginLogRepository = loginLogRepository;
@@ -68,15 +73,25 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenBlacklistService = tokenBlacklistService;
         this.auditLogService = auditLogService;
+        this.emailVerificationService = emailVerificationService;
+    }
+
+    // 이메일 인증코드 발송 전에도 같은 규칙으로 미리 막아서, 사용자가 인증까지 다 끝낸
+    // 뒤에야 "이미 가입된 이메일"이라는 걸 알게 되는 일이 없게 한다.
+    public void ensureEmailAvailable(String email) {
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
+        }
     }
 
     @Transactional
     public MeResponse signup(SignupRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
-        }
+        ensureEmailAvailable(request.email());
         if (!PASSWORD_POLICY.matcher(request.password()).matches()) {
             throw new InvalidPasswordException(PASSWORD_POLICY_MESSAGE);
+        }
+        if (!emailVerificationService.isVerified(request.email())) {
+            throw new EmailNotVerifiedException("이메일 인증을 먼저 완료해주세요.");
         }
 
         UserEntity entity = UserEntity.builder()
@@ -104,6 +119,7 @@ public class AuthService {
         }
 
         auditLogService.log(saved.getUserId(), "SIGNUP", "USER", saved.getUserId(), Map.of("role", saved.getRole()));
+        emailVerificationService.clearVerified(saved.getEmail());
 
         return toMeResponse(saved);
     }
@@ -112,6 +128,11 @@ public class AuthService {
     public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
         UserEntity user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
+
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            writeLoginLog(user.getUserId(), ipAddress, userAgent, "FAILED", "ACCOUNT_DELETED");
+            throw new AccountDeletedException("탈퇴한 계정입니다.");
+        }
 
         if (Boolean.TRUE.equals(user.getIsLocked())) {
             writeLoginLog(user.getUserId(), ipAddress, userAgent, "FAILED", "ACCOUNT_LOCKED");
@@ -147,6 +168,26 @@ public class AuthService {
         jwtTokenProvider.getExpiration(token)
                 .ifPresent(expiry -> tokenBlacklistService.blacklist(token, Duration.between(Instant.now(), expiry)));
         auditLogService.log(authenticatedUser.userId(), "LOGOUT", "USER", authenticatedUser.userId(), null);
+    }
+
+    // 소프트 삭제: row는 남기고 is_deleted만 세운다. 지금 쓰던 토큰은 로그아웃과 동일하게
+    // 블랙리스트에 올려 바로 무효화하고, 다른 기기의 세션은 findUser()의 is_deleted 체크로
+    // /me 계열 호출 시 자연스럽게 막힌다(자연 만료 전까지는 완전히 죽진 않지만, 그 사이엔
+    // 조회/수정 자체가 막힘).
+    @Transactional
+    public void deleteAccount(AuthenticatedUser authenticatedUser, DeleteAccountRequest request, String token) {
+        UserEntity user = findUser(authenticatedUser.userId());
+        if (request.currentPassword() == null
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidCredentialsException("비밀번호가 일치하지 않습니다.");
+        }
+        user.setIsDeleted(true);
+        user.setDeletedAt(OffsetDateTime.now());
+        userRepository.save(user);
+
+        jwtTokenProvider.getExpiration(token)
+                .ifPresent(expiry -> tokenBlacklistService.blacklist(token, Duration.between(Instant.now(), expiry)));
+        auditLogService.log(authenticatedUser.userId(), "ACCOUNT_DELETE", "USER", authenticatedUser.userId(), null);
     }
 
     public MeResponse getMe(AuthenticatedUser authenticatedUser) {
@@ -194,8 +235,12 @@ public class AuthService {
     }
 
     private UserEntity findUser(UUID userId) {
-        return userRepository.findById(userId)
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            throw new EntityNotFoundException("User not found: " + userId);
+        }
+        return user;
     }
 
     private void writeLoginLog(UUID userId, String ipAddress, String userAgent, String status, String failReason) {
