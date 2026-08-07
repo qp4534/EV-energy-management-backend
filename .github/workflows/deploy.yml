@@ -70,6 +70,24 @@ jobs:
               --dry-run=client -o yaml | kubectl apply -f -
           "
 
+      - name: Sync mail secret to cluster
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no "ubuntu@$EC2_HOST" "
+            export KUBECONFIG=~/.kube/config
+            kubectl create secret generic mail-secret -n backend \
+              --from-literal=MAIL_USERNAME='$MAIL_USERNAME' \
+              --from-literal=MAIL_APP_PASSWORD='$MAIL_APP_PASSWORD' \
+              --dry-run=client -o yaml | kubectl apply -f -
+          "
+
       - uses: azure/setup-kubectl@v4
 
       - name: Sync DB password secret to EKS
@@ -82,4 +100,18 @@ jobs:
           aws eks update-kubeconfig --name ev-mgmt-eks --region ap-northeast-2
           kubectl create secret generic db-secret -n backend \
             --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Sync mail secret to EKS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-northeast-2
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+        run: |
+          aws eks update-kubeconfig --name ev-mgmt-eks --region ap-northeast-2
+          kubectl create secret generic mail-secret -n backend \
+            --from-literal=MAIL_USERNAME="$MAIL_USERNAME" \
+            --from-literal=MAIL_APP_PASSWORD="$MAIL_APP_PASSWORD" \
             --dry-run=client -o yaml | kubectl apply -f -
