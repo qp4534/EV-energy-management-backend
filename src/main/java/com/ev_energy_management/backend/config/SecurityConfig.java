@@ -67,7 +67,9 @@ public class SecurityConfig {
                         // CORS preflight는 인증 헤더 없이 오므로 막으면 브라우저에서 모든 API가 CORS 에러로 실패한다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 쿠버네티스 liveness/readiness probe용 - management.endpoints.web.exposure.include=health 참고.
-                        .requestMatchers("/actuator/health").permitAll()
+                        // "/actuator/health" 단독 매칭은 하위 경로(/actuator/health/readiness,
+                        // /actuator/health/liveness)를 포함하지 않아서 probe가 401로 막혔었다 - "/**" 추가.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
                                 "/api/auth/email/send-code", "/api/auth/email/verify-code",
                                 "/api/auth/find-email", "/api/auth/password/reset/send-code",
