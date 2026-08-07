@@ -17,11 +17,14 @@ import com.ev_energy_management.backend.repository.TermAgreementRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
 import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
+import com.ev_energy_management.backend.security.TokenBlacklistService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -46,6 +49,7 @@ public class AuthService {
     private final TermAgreementRepository termAgreementRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
     private final AuditLogService auditLogService;
 
     public AuthService(
@@ -54,6 +58,7 @@ public class AuthService {
             TermAgreementRepository termAgreementRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
+            TokenBlacklistService tokenBlacklistService,
             AuditLogService auditLogService
     ) {
         this.userRepository = userRepository;
@@ -61,6 +66,7 @@ public class AuthService {
         this.termAgreementRepository = termAgreementRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenBlacklistService = tokenBlacklistService;
         this.auditLogService = auditLogService;
     }
 
@@ -137,7 +143,9 @@ public class AuthService {
         return new LoginResponse(token, user.getRole(), user.getUserId(), user.getName());
     }
 
-    public void logout(AuthenticatedUser authenticatedUser) {
+    public void logout(AuthenticatedUser authenticatedUser, String token) {
+        jwtTokenProvider.getExpiration(token)
+                .ifPresent(expiry -> tokenBlacklistService.blacklist(token, Duration.between(Instant.now(), expiry)));
         auditLogService.log(authenticatedUser.userId(), "LOGOUT", "USER", authenticatedUser.userId(), null);
     }
 

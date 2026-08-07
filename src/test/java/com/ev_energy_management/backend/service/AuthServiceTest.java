@@ -12,7 +12,9 @@ import com.ev_energy_management.backend.exception.InvalidPasswordException;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
 import com.ev_energy_management.backend.repository.TermAgreementRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
+import com.ev_energy_management.backend.security.TokenBlacklistService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +46,8 @@ class AuthServiceTest {
     @Mock
     private JwtTokenProvider jwtTokenProvider;
     @Mock
+    private TokenBlacklistService tokenBlacklistService;
+    @Mock
     private AuditLogService auditLogService;
 
     private AuthService authService;
@@ -50,7 +56,7 @@ class AuthServiceTest {
     void setUp() {
         authService = new AuthService(
                 userRepository, loginLogRepository, termAgreementRepository,
-                passwordEncoder, jwtTokenProvider, auditLogService
+                passwordEncoder, jwtTokenProvider, tokenBlacklistService, auditLogService
         );
     }
 
@@ -155,6 +161,19 @@ class AuthServiceTest {
         assertEquals(5, user.getLoginFailed());
         assertTrue(user.getIsLocked());
         assertNotNull(user.getLockedAt());
+    }
+
+    @Test
+    void logoutBlacklistsTokenUntilExpiryAndWritesAuditLog() {
+        UUID userId = UUID.randomUUID();
+        AuthenticatedUser user = new AuthenticatedUser(userId, "관제자");
+        String token = "jwt-token";
+        when(jwtTokenProvider.getExpiration(token)).thenReturn(Optional.of(Instant.now().plusSeconds(60)));
+
+        authService.logout(user, token);
+
+        verify(tokenBlacklistService).blacklist(eq(token), any(Duration.class));
+        verify(auditLogService).log(eq(userId), eq("LOGOUT"), eq("USER"), eq(userId), eq(null));
     }
 
     @Test
