@@ -6,6 +6,7 @@ import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,7 +26,9 @@ public class LoginLogService {
     }
 
     public List<LoginLogDto> findAll() {
-        List<LoginLogEntity> entities = loginLogRepository.findAll();
+        // 정렬 없이 findAll()만 쓰면 순서가 보장 안 돼서 방금 로그인한 게 최신순이 아니라
+        // 아무데나 섞여 보였다 - 최신순(createdAt DESC)으로 고정.
+        List<LoginLogEntity> entities = loginLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
 
         // 관리자 로그 화면에 이용자 UUID 대신 이름을 보여주기 위해 한 번에 조회(N+1 방지)
         List<UUID> userIds = entities.stream().map(LoginLogEntity::getUserId).distinct().toList();
