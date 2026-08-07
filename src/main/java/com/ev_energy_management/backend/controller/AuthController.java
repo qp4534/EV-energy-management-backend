@@ -1,5 +1,6 @@
 package com.ev_energy_management.backend.controller;
 
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
@@ -72,5 +73,15 @@ public class AuthController {
     @PatchMapping("/me")
     public MeResponse updateMe(@AuthenticationPrincipal AuthenticatedUser user, @RequestBody ProfileUpdateRequest request) {
         return authService.updateProfile(user, request);
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody DeleteAccountRequest request
+    ) {
+        authService.deleteAccount(user, request, authorizationHeader.substring(BEARER_PREFIX.length()));
+        return ResponseEntity.noContent().build();
     }
 }

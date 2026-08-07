@@ -72,10 +72,19 @@ public class UserEntity {
     @Column(name = "`locked_at`")
     private OffsetDateTime lockedAt;
 
+    @Column(name = "`is_deleted`", nullable = false)
+    private Boolean isDeleted;
+
+    @Column(name = "`deleted_at`")
+    private OffsetDateTime deletedAt;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
         }
     }
 }

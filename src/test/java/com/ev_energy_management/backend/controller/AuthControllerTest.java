@@ -1,6 +1,7 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.config.SecurityConfig;
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
@@ -152,6 +153,26 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new VerifyEmailCodeRequest("new@user.com", "000000"))))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteMeWithoutTokenReturns401() throws Exception {
+        mockMvc.perform(delete("/api/auth/me")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DeleteAccountRequest("password"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteMeWithValidTokenReturns204() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String token = jwtTokenProvider.generateToken(userId, "관제자");
+
+        mockMvc.perform(delete("/api/auth/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new DeleteAccountRequest("password"))))
+                .andExpect(status().isNoContent());
     }
 
     @Test

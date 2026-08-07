@@ -1,5 +1,6 @@
 package com.ev_energy_management.backend.service;
 
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
@@ -8,6 +9,7 @@ import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.entity.LoginLogEntity;
 import com.ev_energy_management.backend.entity.TermAgreementEntity;
 import com.ev_energy_management.backend.entity.UserEntity;
+import com.ev_energy_management.backend.exception.AccountDeletedException;
 import com.ev_energy_management.backend.exception.AccountLockedException;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
 import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
@@ -127,6 +129,11 @@ public class AuthService {
         UserEntity user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            writeLoginLog(user.getUserId(), ipAddress, userAgent, "FAILED", "ACCOUNT_DELETED");
+            throw new AccountDeletedException("탈퇴한 계정입니다.");
+        }
+
         if (Boolean.TRUE.equals(user.getIsLocked())) {
             writeLoginLog(user.getUserId(), ipAddress, userAgent, "FAILED", "ACCOUNT_LOCKED");
             throw new AccountLockedException("5회 이상 로그인에 실패해 계정이 잠겼습니다. 관리자에게 문의해주세요.");
@@ -161,6 +168,26 @@ public class AuthService {
         jwtTokenProvider.getExpiration(token)
                 .ifPresent(expiry -> tokenBlacklistService.blacklist(token, Duration.between(Instant.now(), expiry)));
         auditLogService.log(authenticatedUser.userId(), "LOGOUT", "USER", authenticatedUser.userId(), null);
+    }
+
+    // 소프트 삭제: row는 남기고 is_deleted만 세운다. 지금 쓰던 토큰은 로그아웃과 동일하게
+    // 블랙리스트에 올려 바로 무효화하고, 다른 기기의 세션은 findUser()의 is_deleted 체크로
+    // /me 계열 호출 시 자연스럽게 막힌다(자연 만료 전까지는 완전히 죽진 않지만, 그 사이엔
+    // 조회/수정 자체가 막힘).
+    @Transactional
+    public void deleteAccount(AuthenticatedUser authenticatedUser, DeleteAccountRequest request, String token) {
+        UserEntity user = findUser(authenticatedUser.userId());
+        if (request.currentPassword() == null
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidCredentialsException("비밀번호가 일치하지 않습니다.");
+        }
+        user.setIsDeleted(true);
+        user.setDeletedAt(OffsetDateTime.now());
+        userRepository.save(user);
+
+        jwtTokenProvider.getExpiration(token)
+                .ifPresent(expiry -> tokenBlacklistService.blacklist(token, Duration.between(Instant.now(), expiry)));
+        auditLogService.log(authenticatedUser.userId(), "ACCOUNT_DELETE", "USER", authenticatedUser.userId(), null);
     }
 
     public MeResponse getMe(AuthenticatedUser authenticatedUser) {
@@ -208,8 +235,12 @@ public class AuthService {
     }
 
     private UserEntity findUser(UUID userId) {
-        return userRepository.findById(userId)
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            throw new EntityNotFoundException("User not found: " + userId);
+        }
+        return user;
     }
 
     private void writeLoginLog(UUID userId, String ipAddress, String userAgent, String status, String failReason) {

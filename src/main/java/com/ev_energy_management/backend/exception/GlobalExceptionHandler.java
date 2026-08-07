@@ -98,6 +98,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(429, "EMAIL_SEND_COOLDOWN", e.getMessage()));
     }
 
+    @ExceptionHandler(AccountDeletedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountDeleted(AccountDeletedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of(403, "ACCOUNT_DELETED", e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

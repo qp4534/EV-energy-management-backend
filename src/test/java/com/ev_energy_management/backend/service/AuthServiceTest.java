@@ -4,7 +4,9 @@ import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
+import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
 import com.ev_energy_management.backend.entity.UserEntity;
+import com.ev_energy_management.backend.exception.AccountDeletedException;
 import com.ev_energy_management.backend.exception.AccountLockedException;
 import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
 import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
@@ -224,5 +226,62 @@ class AuthServiceTest {
 
         verify(passwordEncoder, never()).matches(anyString(), anyString());
         verify(loginLogRepository).save(argThat(log -> "ACCOUNT_LOCKED".equals(log.getFailReason())));
+    }
+
+    @Test
+    void deletedAccountRejectedOnLogin() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder()
+                .userId(userId).email("deleted@user.com").passwordHash("hashed")
+                .role("관제자").isDeleted(true)
+                .build();
+        when(userRepository.findByEmail("deleted@user.com")).thenReturn(Optional.of(user));
+
+        assertThrows(AccountDeletedException.class,
+                () -> authService.login(new LoginRequest("deleted@user.com", "correct"), "1.1.1.1", "test-agent"));
+
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+        verify(loginLogRepository).save(argThat(log -> "ACCOUNT_DELETED".equals(log.getFailReason())));
+    }
+
+    @Test
+    void deleteAccountSoftDeletesAndBlacklistsTokenAndWritesAuditLog() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder()
+                .userId(userId).email("withdraw@user.com").passwordHash("hashed")
+                .role("관제자")
+                .build();
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(userId, "관제자");
+        String token = "jwt-token";
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correct", "hashed")).thenReturn(true);
+        when(jwtTokenProvider.getExpiration(token)).thenReturn(Optional.of(Instant.now().plusSeconds(60)));
+
+        authService.deleteAccount(authenticatedUser, new DeleteAccountRequest("correct"), token);
+
+        assertTrue(user.getIsDeleted());
+        assertNotNull(user.getDeletedAt());
+        verify(userRepository).save(user);
+        verify(tokenBlacklistService).blacklist(eq(token), any(Duration.class));
+        verify(auditLogService).log(eq(userId), eq("ACCOUNT_DELETE"), eq("USER"), eq(userId), eq(null));
+    }
+
+    @Test
+    void deleteAccountRejectsWrongPassword() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder()
+                .userId(userId).email("withdraw2@user.com").passwordHash("hashed")
+                .role("관제자")
+                .build();
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(userId, "관제자");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThrows(InvalidCredentialsException.class,
+                () -> authService.deleteAccount(authenticatedUser, new DeleteAccountRequest("wrong"), "jwt-token"));
+
+        assertFalse(Boolean.TRUE.equals(user.getIsDeleted()));
+        verify(userRepository, never()).save(any());
+        verify(tokenBlacklistService, never()).blacklist(anyString(), any());
     }
 }
