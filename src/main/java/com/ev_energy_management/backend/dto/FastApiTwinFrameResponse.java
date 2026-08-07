@@ -2,6 +2,7 @@ package com.ev_energy_management.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,7 +13,7 @@ public record FastApiTwinFrameResponse(
         @JsonProperty("vehicle_id") String vehicleId,
         @JsonProperty("anomaly_id") String anomalyId,
         @JsonProperty("session_id") UUID sessionId,
-        @JsonProperty("observed_at") String observedAt,
+        @JsonProperty("observed_at") OffsetDateTime observedAt,
         Long sequence,
         @JsonProperty("temperature_decic") List<Integer> temperatureDecic,
         @JsonProperty("voltage_mv") List<Integer> voltageMv,
