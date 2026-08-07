@@ -3,19 +3,26 @@ package com.ev_energy_management.backend.service;
 import com.ev_energy_management.backend.dto.CarDto;
 import com.ev_energy_management.backend.entity.CarEntity;
 import com.ev_energy_management.backend.repository.CarRepository;
+import com.ev_energy_management.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class CarService {
 
     private final CarRepository carRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
-    public CarService(CarRepository carRepository) {
+    public CarService(CarRepository carRepository, UserRepository userRepository,
+                       AuditLogService auditLogService) {
         this.carRepository = carRepository;
+        this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<CarDto> findAll() {
@@ -37,7 +44,9 @@ public class CarService {
                 .isPrimary(request.isPrimary() != null ? request.isPrimary() : false)
                 .userId(request.userId())
                 .build();
-        return toDto(carRepository.save(entity));
+        CarEntity saved = carRepository.save(entity);
+        logCarChange(saved, "CAR_CREATE", "신규 등록");
+        return toDto(saved);
     }
 
     public CarDto update(UUID carId, CarDto request) {
@@ -50,11 +59,33 @@ public class CarService {
         entity.setImageUrl(request.imageUrl());
         entity.setIsPrimary(request.isPrimary());
         entity.setUserId(request.userId());
-        return toDto(carRepository.save(entity));
+        CarEntity saved = carRepository.save(entity);
+        logCarChange(saved, "CAR_UPDATE", "차량 정보 수정");
+        return toDto(saved);
     }
 
     public void delete(UUID carId) {
+        CarEntity entity = carRepository.findById(carId)
+                .orElseThrow(() -> new EntityNotFoundException("Car not found: " + carId));
+        // 삭제 전에 로그 남김 - 지운 뒤엔 car_number/소유자를 다시 조회할 수 없음
+        logCarChange(entity, "CAR_DELETE", "차량 삭제");
         carRepository.deleteById(carId);
+    }
+
+    // 관리자 로그 관리 화면(LogManage.jsx "차량 등록/변경" 탭)이 detail.carNumber/owner/
+    // changeType/result를 그대로 읽어서 표에 채운다 - 여기서 그 키 이름에 맞춰서 남긴다.
+    // 실행 주체(로그인한 사람)를 따로 추적하는 인증 컨텍스트가 CarController에 없어서,
+    // 우선 차량 소유자 본인이 등록/변경한다고 가정하고 owner를 actor로 함께 쓴다.
+    private void logCarChange(CarEntity car, String actionType, String changeTypeKo) {
+        String ownerName = userRepository.findById(car.getUserId())
+                .map(com.ev_energy_management.backend.entity.UserEntity::getName)
+                .orElse(null);
+        auditLogService.log(car.getUserId(), actionType, "CAR", car.getCarId(), Map.of(
+                "carNumber", car.getCarNumber(),
+                "owner", ownerName != null ? ownerName : "",
+                "changeType", changeTypeKo,
+                "result", "success"
+        ));
     }
 
     private CarDto toDto(CarEntity entity) {
