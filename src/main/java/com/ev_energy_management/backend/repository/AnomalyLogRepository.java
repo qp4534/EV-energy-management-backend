@@ -4,7 +4,7 @@ import com.ev_energy_management.backend.entity.AnomalyLogEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,7 +49,7 @@ public interface AnomalyLogRepository extends JpaRepository<AnomalyLogEntity, UU
         String getVin();
         String getRiskLevel();
         String getAbnormalType();
-        OffsetDateTime getDetectedAt();
+        Instant getDetectedAt();
     }
 
     interface DailyRiskCountProjection {

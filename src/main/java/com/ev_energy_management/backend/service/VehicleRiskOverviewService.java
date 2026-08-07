@@ -4,6 +4,9 @@ import com.ev_energy_management.backend.dto.VehicleRiskOverviewDto;
 import com.ev_energy_management.backend.repository.AnomalyLogRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 
@@ -30,7 +33,7 @@ public class VehicleRiskOverviewService {
                         row.getVin(),
                         normalizeRiskLevel(row.getRiskLevel()),
                         row.getAbnormalType(),
-                        row.getDetectedAt()
+                        toOffsetDateTime(row.getDetectedAt())
                 ))
                 .toList();
 
@@ -66,5 +69,9 @@ public class VehicleRiskOverviewService {
             case CAUTION, WARNING, EMERGENCY -> riskLevel;
             default -> NORMAL;
         };
+    }
+
+    private OffsetDateTime toOffsetDateTime(Instant detectedAt) {
+        return detectedAt == null ? null : detectedAt.atOffset(ZoneOffset.UTC);
     }
 }

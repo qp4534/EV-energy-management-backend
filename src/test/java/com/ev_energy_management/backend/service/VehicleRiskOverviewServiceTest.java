@@ -7,7 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,7 +49,7 @@ class VehicleRiskOverviewServiceTest {
             @Override public String getVin() { return "VIN"; }
             @Override public String getRiskLevel() { return riskLevel; }
             @Override public String getAbnormalType() { return "테스트"; }
-            @Override public OffsetDateTime getDetectedAt() { return OffsetDateTime.parse("2026-08-07T10:00:00+09:00"); }
+            @Override public Instant getDetectedAt() { return Instant.parse("2026-08-07T01:00:00Z"); }
         };
     }
 
