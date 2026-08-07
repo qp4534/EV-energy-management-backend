@@ -5,6 +5,9 @@ import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
 import com.ev_energy_management.backend.dto.auth.DeleteAccountRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailRequest;
+import com.ev_energy_management.backend.dto.auth.FindEmailResponse;
+import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.exception.AccountDeletedException;
 import com.ev_energy_management.backend.exception.AccountLockedException;
@@ -12,6 +15,7 @@ import com.ev_energy_management.backend.exception.EmailAlreadyExistsException;
 import com.ev_energy_management.backend.exception.EmailNotVerifiedException;
 import com.ev_energy_management.backend.exception.InvalidCredentialsException;
 import com.ev_energy_management.backend.exception.InvalidPasswordException;
+import jakarta.persistence.EntityNotFoundException;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
 import com.ev_energy_management.backend.repository.TermAgreementRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
@@ -283,5 +287,127 @@ class AuthServiceTest {
         assertFalse(Boolean.TRUE.equals(user.getIsDeleted()));
         verify(userRepository, never()).save(any());
         verify(tokenBlacklistService, never()).blacklist(anyString(), any());
+    }
+
+    @Test
+    void findEmailReturnsNameAndEmailOnExactMatch() {
+        UserEntity user = UserEntity.builder()
+                .email("found@user.com").name("홍길동").phone("010-1111-2222")
+                .birth(LocalDate.of(1990, 1, 1)).role("관제자")
+                .build();
+        when(userRepository.findByNameAndBirthAndRoleAndIsDeletedFalse(
+                "홍길동", LocalDate.of(1990, 1, 1), "관제자"))
+                .thenReturn(List.of(user));
+
+        FindEmailResponse response = authService.findEmail(
+                new FindEmailRequest("홍길동", "010-1111-2222", LocalDate.of(1990, 1, 1), "관제자"));
+
+        assertEquals("found@user.com", response.email());
+        assertEquals("홍길동", response.name());
+    }
+
+    @Test
+    void findEmailMatchesPhoneRegardlessOfHyphenFormatting() {
+        UserEntity user = UserEntity.builder()
+                .email("found2@user.com").name("홍길동").phone("01011112222")
+                .birth(LocalDate.of(1990, 1, 1)).role("관제자")
+                .build();
+        when(userRepository.findByNameAndBirthAndRoleAndIsDeletedFalse(
+                "홍길동", LocalDate.of(1990, 1, 1), "관제자"))
+                .thenReturn(List.of(user));
+
+        FindEmailResponse response = authService.findEmail(
+                new FindEmailRequest("홍길동", "010-1111-2222", LocalDate.of(1990, 1, 1), "관제자"));
+
+        assertEquals("found2@user.com", response.email());
+    }
+
+    @Test
+    void findEmailThrowsWhenNoMatch() {
+        when(userRepository.findByNameAndBirthAndRoleAndIsDeletedFalse(any(), any(), any()))
+                .thenReturn(List.of());
+
+        assertThrows(EntityNotFoundException.class, () -> authService.findEmail(
+                new FindEmailRequest("홍길동", "010-1111-2222", LocalDate.of(1990, 1, 1), "관제자")));
+    }
+
+    @Test
+    void findEmailThrowsWhenNameAndBirthAndRoleMatchButPhoneDoesNot() {
+        UserEntity user = UserEntity.builder()
+                .email("found3@user.com").name("홍길동").phone("010-9999-9999")
+                .birth(LocalDate.of(1990, 1, 1)).role("관제자")
+                .build();
+        when(userRepository.findByNameAndBirthAndRoleAndIsDeletedFalse(
+                "홍길동", LocalDate.of(1990, 1, 1), "관제자"))
+                .thenReturn(List.of(user));
+
+        assertThrows(EntityNotFoundException.class, () -> authService.findEmail(
+                new FindEmailRequest("홍길동", "010-1111-2222", LocalDate.of(1990, 1, 1), "관제자")));
+    }
+
+    @Test
+    void requestPasswordResetSendsCodeForExistingAccount() {
+        UserEntity user = UserEntity.builder().email("reset@user.com").isDeleted(false).build();
+        when(userRepository.findByEmail("reset@user.com")).thenReturn(Optional.of(user));
+
+        authService.requestPasswordReset("reset@user.com");
+
+        verify(emailVerificationService).sendCode("reset@user.com");
+    }
+
+    @Test
+    void requestPasswordResetRejectsUnknownEmail() {
+        when(userRepository.findByEmail("nobody@user.com")).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> authService.requestPasswordReset("nobody@user.com"));
+        verify(emailVerificationService, never()).sendCode(anyString());
+    }
+
+    @Test
+    void requestPasswordResetRejectsDeletedAccount() {
+        UserEntity user = UserEntity.builder().email("gone@user.com").isDeleted(true).build();
+        when(userRepository.findByEmail("gone@user.com")).thenReturn(Optional.of(user));
+
+        assertThrows(AccountDeletedException.class, () -> authService.requestPasswordReset("gone@user.com"));
+        verify(emailVerificationService, never()).sendCode(anyString());
+    }
+
+    @Test
+    void resetPasswordUpdatesHashAndUnlocksAccount() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder()
+                .userId(userId).email("reset2@user.com").passwordHash("old-hash")
+                .loginFailed(3).isLocked(true)
+                .build();
+        when(emailVerificationService.isVerified("reset2@user.com")).thenReturn(true);
+        when(userRepository.findByEmail("reset2@user.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("New-password1!")).thenReturn("new-hash");
+
+        authService.resetPassword(new PasswordResetRequest("reset2@user.com", "New-password1!"));
+
+        assertEquals("new-hash", user.getPasswordHash());
+        assertEquals(0, user.getLoginFailed());
+        assertFalse(user.getIsLocked());
+        assertNull(user.getLockedAt());
+        verify(emailVerificationService).clearVerified("reset2@user.com");
+        verify(auditLogService).log(eq(userId), eq("PASSWORD_RESET"), eq("USER"), eq(userId), eq(null));
+    }
+
+    @Test
+    void resetPasswordRejectsWhenEmailNotVerified() {
+        when(emailVerificationService.isVerified("noverify@user.com")).thenReturn(false);
+
+        assertThrows(EmailNotVerifiedException.class, () -> authService.resetPassword(
+                new PasswordResetRequest("noverify@user.com", "New-password1!")));
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    @Test
+    void resetPasswordRejectsWeakPassword() {
+        when(emailVerificationService.isVerified("weak2@user.com")).thenReturn(true);
+
+        assertThrows(InvalidPasswordException.class, () -> authService.resetPassword(
+                new PasswordResetRequest("weak2@user.com", "weakpassword")));
+        verify(userRepository, never()).findByEmail(anyString());
     }
 }
