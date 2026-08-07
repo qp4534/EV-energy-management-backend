@@ -25,7 +25,9 @@ public class FastApiTwinClient {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("schema_version", 1);
         payload.put("layout_id", "generic_ev_concept_96_v1");
-        payload.put("observed_at", request.observedAt());
+        // RestClient's default Jackson converter is not guaranteed to have the
+        // Java time module. Send the FastAPI contract's ISO-8601 value directly.
+        payload.put("observed_at", request.observedAt().toString());
         payload.put("sequence", request.sequence());
         if (request.sessionId() != null) {
             payload.put("session_id", request.sessionId());
