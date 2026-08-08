@@ -2,6 +2,7 @@ package com.ev_energy_management.backend.client;
 
 import com.ev_energy_management.backend.dto.battery.BatteryProposalPdfRequest;
 import com.ev_energy_management.backend.dto.battery.BuyerDisclosureRequest;
+import com.ev_energy_management.backend.dto.battery.LiveOffersRequest;
 import com.ev_energy_management.backend.exception.AiServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -106,6 +107,39 @@ public class RulDiagnosisPdfClient {
             return disclosure == null ? null : disclosure.toString();
         } catch (RestClientException e) {
             return null;
+        }
+    }
+
+    /** 매입처를 실시간 검색으로 찾아서(discover_buyers) 매칭·가격 계산까지 받아온다.
+     * 검색이 실패하거나 서비스가 잠깐 안 되면 예외를 던진다 - 이건 disclosure와 달리
+     * "실시간 검색 버튼"을 눌러 명시적으로 요청한 액션이라, 실패를 화면에 알려야
+     * 사용자가 재시도할 수 있기 때문(조용히 폴백하면 왜 목록이 안 바뀌었는지 모름). */
+    public Map<String, Object> fetchLiveOffers(LiveOffersRequest req) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("grade", req.grade());
+        body.put("capacity_kwh", req.capacityKwh());
+        body.put("condition", req.condition());
+        if (req.serperApiKeyNh() != null && !req.serperApiKeyNh().isBlank()) {
+            body.put("serper_api_key_nh", req.serperApiKeyNh());
+        }
+        if (req.deepseekApiKeyNh() != null && !req.deepseekApiKeyNh().isBlank()) {
+            body.put("deepseek_api_key_nh", req.deepseekApiKeyNh());
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restClient.post()
+                    .uri("/buyers/live-offers")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            if (resp == null) {
+                throw new AiServiceUnavailableException("매입처 조회 응답이 비어 있습니다.");
+            }
+            return resp;
+        } catch (RestClientException e) {
+            throw new AiServiceUnavailableException("현재 매입처 실시간 검색 서비스를 사용할 수 없습니다.", e);
         }
     }
 }
