@@ -54,6 +54,16 @@ public class RulDiagnosisPdfClient {
         indicators.put("stability", req.indicators().stability());
         body.put("indicators", indicators);
 
+        // chosenBuyer가 있으면(화면에서 top3 중 하나를 골랐으면) 그대로 넘겨서 rul-diagnosis가
+        // buyer_index로 static BUYERS를 다시 찾지 않고 이 매입처로 PDF를 만들게 한다 - 실시간
+        // 검색으로 찾은 매입처는 애초에 static 목록에 없어서 buyer_index로는 못 찾는다.
+        if (req.chosenBuyer() != null && !req.chosenBuyer().isEmpty()) {
+            body.put("chosen_buyer", req.chosenBuyer());
+        }
+        if (req.reasons() != null && !req.reasons().isEmpty()) {
+            body.put("reasons", req.reasons());
+        }
+
         try {
             byte[] pdf = restClient.post()
                     .uri("/report/pdf/full")
