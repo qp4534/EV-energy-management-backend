@@ -53,6 +53,12 @@ public class RulDiagnosisPdfClient {
         indicators.put("stability", req.indicators().stability());
         body.put("indicators", indicators);
 
+        // 개인 키를 입력했을 때만 실어 보낸다 - 절대 로그로 남기지 않는다(그래서 이 메서드는
+        // 요청 성공/실패와 무관하게 req나 body를 로깅하지 않는다).
+        if (req.anthropicApiKey() != null && !req.anthropicApiKey().isBlank()) {
+            body.put("anthropic_api_key", req.anthropicApiKey());
+        }
+
         try {
             byte[] pdf = restClient.post()
                     .uri("/report/pdf/full")
