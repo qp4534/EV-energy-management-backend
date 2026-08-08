@@ -1,6 +1,7 @@
 package com.ev_energy_management.backend.client;
 
 import com.ev_energy_management.backend.dto.battery.BatteryProposalPdfRequest;
+import com.ev_energy_management.backend.dto.battery.BuyerDisclosureRequest;
 import com.ev_energy_management.backend.exception.AiServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -77,6 +78,34 @@ public class RulDiagnosisPdfClient {
             throw e;
         } catch (RestClientException e) {
             throw new AiServiceUnavailableException("현재 배터리 진단서 PDF 생성 서비스를 사용할 수 없습니다.", e);
+        }
+    }
+
+    /** 매입처가 사용후 배터리를 매입하겠다고 밝힌 근거자료를 실시간 검색해 요약해온다.
+     * 검색 결과가 없거나 서비스 자체가 잠깐 안 되면 null을 돌려주고(예외를 던지지 않음) —
+     * 화면 쪽에서 기존 DB 문구로 자연스럽게 폴백하면 되고, 이 기능 하나 때문에 화면
+     * 전체가 에러로 막히면 안 되기 때문. */
+    public String fetchBuyerDisclosure(BuyerDisclosureRequest req) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("buyer_name", req.buyerName());
+        if (req.serperApiKeyNh() != null && !req.serperApiKeyNh().isBlank()) {
+            body.put("serper_api_key_nh", req.serperApiKeyNh());
+        }
+        if (req.deepseekApiKeyNh() != null && !req.deepseekApiKeyNh().isBlank()) {
+            body.put("deepseek_api_key_nh", req.deepseekApiKeyNh());
+        }
+
+        try {
+            Map<?, ?> resp = restClient.post()
+                    .uri("/buyer/disclosure")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            Object disclosure = resp == null ? null : resp.get("disclosure");
+            return disclosure == null ? null : disclosure.toString();
+        } catch (RestClientException e) {
+            return null;
         }
     }
 }
