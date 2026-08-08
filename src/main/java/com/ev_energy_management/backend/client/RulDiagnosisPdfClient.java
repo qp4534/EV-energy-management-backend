@@ -1,7 +1,6 @@
 package com.ev_energy_management.backend.client;
 
 import com.ev_energy_management.backend.dto.battery.BatteryProposalPdfRequest;
-import com.ev_energy_management.backend.dto.battery.BuyerDisclosureRequest;
 import com.ev_energy_management.backend.dto.battery.LiveOffersRequest;
 import com.ev_energy_management.backend.exception.AiServiceUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,15 +54,6 @@ public class RulDiagnosisPdfClient {
         indicators.put("stability", req.indicators().stability());
         body.put("indicators", indicators);
 
-        // 개인 키를 입력했을 때만 실어 보낸다 - 절대 로그로 남기지 않는다(그래서 이 메서드는
-        // 요청 성공/실패와 무관하게 req나 body를 로깅하지 않는다).
-        if (req.serperApiKeyNh() != null && !req.serperApiKeyNh().isBlank()) {
-            body.put("serper_api_key_nh", req.serperApiKeyNh());
-        }
-        if (req.deepseekApiKeyNh() != null && !req.deepseekApiKeyNh().isBlank()) {
-            body.put("deepseek_api_key_nh", req.deepseekApiKeyNh());
-        }
-
         try {
             byte[] pdf = restClient.post()
                     .uri("/report/pdf/full")
@@ -82,49 +72,14 @@ public class RulDiagnosisPdfClient {
         }
     }
 
-    /** 매입처가 사용후 배터리를 매입하겠다고 밝힌 근거자료를 실시간 검색해 요약해온다.
-     * 검색 결과가 없거나 서비스 자체가 잠깐 안 되면 null을 돌려주고(예외를 던지지 않음) —
-     * 화면 쪽에서 기존 DB 문구로 자연스럽게 폴백하면 되고, 이 기능 하나 때문에 화면
-     * 전체가 에러로 막히면 안 되기 때문. */
-    public String fetchBuyerDisclosure(BuyerDisclosureRequest req) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("buyer_name", req.buyerName());
-        if (req.serperApiKeyNh() != null && !req.serperApiKeyNh().isBlank()) {
-            body.put("serper_api_key_nh", req.serperApiKeyNh());
-        }
-        if (req.deepseekApiKeyNh() != null && !req.deepseekApiKeyNh().isBlank()) {
-            body.put("deepseek_api_key_nh", req.deepseekApiKeyNh());
-        }
-
-        try {
-            Map<?, ?> resp = restClient.post()
-                    .uri("/buyer/disclosure")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(Map.class);
-            Object disclosure = resp == null ? null : resp.get("disclosure");
-            return disclosure == null ? null : disclosure.toString();
-        } catch (RestClientException e) {
-            return null;
-        }
-    }
-
     /** 매입처를 실시간 검색으로 찾아서(discover_buyers) 매칭·가격 계산까지 받아온다.
-     * 검색이 실패하거나 서비스가 잠깐 안 되면 예외를 던진다 - 이건 disclosure와 달리
-     * "실시간 검색 버튼"을 눌러 명시적으로 요청한 액션이라, 실패를 화면에 알려야
-     * 사용자가 재시도할 수 있기 때문(조용히 폴백하면 왜 목록이 안 바뀌었는지 모름). */
+     * Serper/DeepSeek 키는 서버 쪽 시크릿(rul-diagnosis-secret)으로 자동 처리되고,
+     * 검색이 실패하거나 서비스가 잠깐 안 되면 예외를 던진다. */
     public Map<String, Object> fetchLiveOffers(LiveOffersRequest req) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("grade", req.grade());
         body.put("capacity_kwh", req.capacityKwh());
         body.put("condition", req.condition());
-        if (req.serperApiKeyNh() != null && !req.serperApiKeyNh().isBlank()) {
-            body.put("serper_api_key_nh", req.serperApiKeyNh());
-        }
-        if (req.deepseekApiKeyNh() != null && !req.deepseekApiKeyNh().isBlank()) {
-            body.put("deepseek_api_key_nh", req.deepseekApiKeyNh());
-        }
 
         try {
             @SuppressWarnings("unchecked")
