@@ -44,4 +44,10 @@ public class UserController {
         userService.delete(userId);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{userId}/password-reset")
+    public ResponseEntity<Void> requestPasswordReset(@PathVariable UUID userId) {
+        userService.requestPasswordReset(userId);
+        return ResponseEntity.ok().build();
+    }
 }

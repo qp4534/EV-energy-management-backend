@@ -1,6 +1,7 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.CarDto;
+import com.ev_energy_management.backend.dto.dashboard.CarModelDistributionDto;
 import com.ev_energy_management.backend.entity.CarEntity;
 import com.ev_energy_management.backend.repository.CarRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
@@ -100,5 +101,18 @@ public class CarService {
                 entity.getCreatedAt(),
                 entity.getUserId()
         );
+    }
+
+    // 관리자 메인 "이용자" 카드 - 차주가 보유한 차량 모델별 분포
+    public List<CarModelDistributionDto> getModelDistribution() {
+        List<CarEntity> cars = carRepository.findAll();
+        Map<String, Long> counts = cars.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        c -> c.getModel() == null ? "미등록" : c.getModel(),
+                        java.util.stream.Collectors.counting()));
+        return counts.entrySet().stream()
+                .map(e -> new CarModelDistributionDto(e.getKey(), e.getValue()))
+                .sorted((a, b) -> Long.compare(b.count(), a.count()))
+                .toList();
     }
 }

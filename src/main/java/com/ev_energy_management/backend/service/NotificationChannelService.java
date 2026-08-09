@@ -7,7 +7,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class NotificationChannelService {
@@ -22,20 +21,21 @@ public class NotificationChannelService {
         return notificationChannelRepository.findAll().stream().map(this::toDto).toList();
     }
 
-    public NotificationChannelDto findById(UUID channelId) {
+    public NotificationChannelDto findById(String channelId) {
         return toDto(notificationChannelRepository.findById(channelId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification channel not found: " + channelId)));
     }
 
     public NotificationChannelDto create(NotificationChannelDto request) {
         NotificationChannelEntity entity = NotificationChannelEntity.builder()
+                .channelId(request.channelId()) // 더 이상 자동 생성 안 됨 (business key), 반드시 지정 필요
                 .channelName(request.channelName())
                 .isActive(request.isActive() != null ? request.isActive() : true)
                 .build();
         return toDto(notificationChannelRepository.save(entity));
     }
 
-    public NotificationChannelDto update(UUID channelId, NotificationChannelDto request) {
+    public NotificationChannelDto update(String channelId, NotificationChannelDto request) {
         NotificationChannelEntity entity = notificationChannelRepository.findById(channelId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification channel not found: " + channelId));
         entity.setChannelName(request.channelName());
@@ -43,7 +43,7 @@ public class NotificationChannelService {
         return toDto(notificationChannelRepository.save(entity));
     }
 
-    public void delete(UUID channelId) {
+    public void delete(String channelId) {
         notificationChannelRepository.deleteById(channelId);
     }
 
