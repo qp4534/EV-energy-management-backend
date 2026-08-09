@@ -81,3 +81,8 @@ jobs:
             --from-literal=MAIL_USERNAME="$MAIL_USERNAME" \
             --from-literal=MAIL_APP_PASSWORD="$MAIL_APP_PASSWORD" \
             --dry-run=client -o yaml | kubectl apply -f -
+            
+      - name: Restart backend pods
+        run: |
+          kubectl rollout restart deployment/backend -n backend
+          kubectl rollout status deployment/backend -n backend
