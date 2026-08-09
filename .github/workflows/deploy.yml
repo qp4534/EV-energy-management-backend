@@ -83,6 +83,11 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
             
       - name: Restart backend pods
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-northeast-2
         run: |
+          aws eks update-kubeconfig --name ev-mgmt-eks --region ap-northeast-2
           kubectl rollout restart deployment/backend -n backend
           kubectl rollout status deployment/backend -n backend
