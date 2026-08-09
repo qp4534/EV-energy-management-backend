@@ -2,6 +2,7 @@ package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.exception.EmailSendCooldownException;
 import com.ev_energy_management.backend.exception.InvalidVerificationCodeException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -27,6 +28,13 @@ public class EmailVerificationService {
     private final StringRedisTemplate redisTemplate;
     private final JavaMailSender mailSender;
 
+    // ⚠️ Daum SMTP(smtp.daum.net)는 From 헤더가 없는 메일을 "501 5.5.2 not found FROM
+    // header in headers"로 거부한다(Gmail은 관대해서 이 문제가 안 드러났었음). SimpleMailMessage는
+    // setFrom()을 안 부르면 From을 아예 안 채우므로 명시적으로 넣어야 한다 - spring.mail.username과
+    // 반드시 같아야 한다(다르면 발신자 위조로 간주돼 다시 거부된다).
+    @Value("${spring.mail.username}")
+    private String fromAddress;
+
     public EmailVerificationService(StringRedisTemplate redisTemplate, JavaMailSender mailSender) {
         this.redisTemplate = redisTemplate;
         this.mailSender = mailSender;
@@ -42,6 +50,7 @@ public class EmailVerificationService {
         redisTemplate.opsForValue().set(COOLDOWN_PREFIX + email, "1", RESEND_COOLDOWN);
 
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
         message.setTo(email);
         message.setSubject("[MijungE] 이메일 인증번호");
         message.setText("인증번호는 " + code + " 입니다. 5분 이내에 입력해주세요.");
