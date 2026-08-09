@@ -70,6 +70,9 @@ public class SecurityConfig {
                         // "/actuator/health" 단독 매칭은 하위 경로(/actuator/health/readiness,
                         // /actuator/health/liveness)를 포함하지 않아서 probe가 401로 막혔었다 - "/**" 추가.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Prometheus 스크랩용 - 외부 Ingress는 /api만 라우팅하므로 클러스터
+                        // 내부(ServiceMonitor)에서만 실제로 도달 가능하다.
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
                                 "/api/auth/email/send-code", "/api/auth/email/verify-code",
                                 "/api/auth/find-email", "/api/auth/password/reset/send-code",
