@@ -1,5 +1,7 @@
 package com.ev_energy_management.backend.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -11,6 +13,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -54,5 +57,32 @@ class FastApiTwinClientTest {
         assertEquals("twin_live", response.source());
         assertFalse(response.isStale());
         server.verify();
+    }
+
+    @Test
+    void exposesCamelCaseJsonToTheFrontend() throws Exception {
+        FastApiTwinMeasurementResponse response = new FastApiTwinMeasurementResponse(
+                "11111111-1111-4111-8111-111111111111",
+                java.time.OffsetDateTime.parse("2026-08-10T13:30:00+09:00"),
+                42L,
+                "twin_live",
+                78.2,
+                51.4,
+                44.0,
+                3.1,
+                4.0,
+                (short) 3,
+                0.7,
+                10,
+                false
+        );
+        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+
+        String json = mapper.writeValueAsString(response);
+
+        assertTrue(json.contains("\"maxCellTemperatureC\":78.2"));
+        assertTrue(json.contains("\"observedAt\""));
+        assertTrue(json.contains("\"isStale\":false"));
+        assertFalse(json.contains("max_cell_temperature_c"));
     }
 }
