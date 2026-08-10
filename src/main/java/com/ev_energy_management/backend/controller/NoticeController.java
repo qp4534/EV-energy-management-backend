@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.NoticeDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.NoticeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,18 +32,28 @@ public class NoticeController {
     }
 
     @PostMapping
-    public ResponseEntity<NoticeDto> createNotice(@RequestBody NoticeDto request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(noticeService.create(request));
+    public ResponseEntity<NoticeDto> createNotice(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @RequestBody NoticeDto request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(noticeService.create(actor, request));
     }
 
     @PutMapping("/{noticeId}")
-    public NoticeDto updateNotice(@PathVariable UUID noticeId, @RequestBody NoticeDto request) {
-        return noticeService.update(noticeId, request);
+    public NoticeDto updateNotice(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID noticeId,
+            @RequestBody NoticeDto request
+    ) {
+        return noticeService.update(actor, noticeId, request);
     }
 
     @DeleteMapping("/{noticeId}")
-    public ResponseEntity<Void> deleteNotice(@PathVariable UUID noticeId) {
-        noticeService.delete(noticeId);
+    public ResponseEntity<Void> deleteNotice(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID noticeId
+    ) {
+        noticeService.delete(actor, noticeId);
         return ResponseEntity.noContent().build();
     }
 }

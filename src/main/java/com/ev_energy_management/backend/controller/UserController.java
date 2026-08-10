@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.UserDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,13 +37,20 @@ public class UserController {
     }
 
     @PutMapping("/{userId}")
-    public UserDto updateUser(@PathVariable UUID userId, @RequestBody UserDto request) {
-        return userService.update(userId, request);
+    public UserDto updateUser(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID userId,
+            @RequestBody UserDto request
+    ) {
+        return userService.update(actor, userId, request);
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable UUID userId) {
-        userService.delete(userId);
+    public ResponseEntity<Void> deleteUser(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID userId
+    ) {
+        userService.delete(actor, userId);
         return ResponseEntity.noContent().build();
     }
 

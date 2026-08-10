@@ -104,12 +104,13 @@ public class AnomalyLogService {
     }
 
     // 통계/리포트 "화재 예방" 탭 - 월별 알림 발생 추이 (최근 7개월)
-    public List<AlertTrendDto> getAlertTrend() {
+    // months: 몇 개월치를 볼지 (화재예방 탭 기간 필터 - 3/6/12개월 선택 가능)
+    public List<AlertTrendDto> getAlertTrend(int months) {
         List<AnomalyLogEntity> logs = anomalyLogRepository.findAll();
-        List<YearMonth> months = lastNMonths(7);
+        List<YearMonth> targetMonths = lastNMonths(months);
 
         List<AlertTrendDto> result = new ArrayList<>();
-        for (YearMonth ym : months) {
+        for (YearMonth ym : targetMonths) {
             long count = logs.stream()
                     .filter(a -> a.getDetectedAt() != null && monthOf(a.getDetectedAt()).equals(ym))
                     .count();

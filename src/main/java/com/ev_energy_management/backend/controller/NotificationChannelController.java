@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.NotificationChannelDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.NotificationChannelService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,8 +37,12 @@ public class NotificationChannelController {
     }
 
     @PutMapping("/{channelId}")
-    public NotificationChannelDto updateNotificationChannel(@PathVariable String channelId, @RequestBody NotificationChannelDto request) {
-        return notificationChannelService.update(channelId, request);
+    public NotificationChannelDto updateNotificationChannel(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable String channelId,
+            @RequestBody NotificationChannelDto request
+    ) {
+        return notificationChannelService.update(actor, channelId, request);
     }
 
     @DeleteMapping("/{channelId}")
