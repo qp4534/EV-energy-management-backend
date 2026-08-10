@@ -3,6 +3,7 @@ package com.ev_energy_management.backend.exception;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -106,6 +107,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccountDeleted(AccountDeletedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.of(403, "ACCOUNT_DELETED", e.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        // 회원가입 등에서 유니크 제약(이메일/전화번호 중복) 위반 시 원본 DB 예외 메시지가 그대로
+        // 500으로 노출되던 걸 막는다 - 사용자에게는 무엇이 중복인지 정도만 알려준다.
+        String msg = e.getMostSpecificCause().getMessage();
+        String field = msg != null && msg.contains("phone") ? "전화번호"
+                : msg != null && msg.contains("email") ? "이메일" : "입력값";
+        log.warn("Data integrity violation: {}", msg);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(409, "DUPLICATE_VALUE", "이미 사용 중인 " + field + "입니다."));
     }
 
     @ExceptionHandler(Exception.class)
