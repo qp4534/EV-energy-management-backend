@@ -15,6 +15,7 @@ import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.AuthService;
 import com.ev_energy_management.backend.service.EmailVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -65,7 +66,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<MeResponse> signup(@RequestBody SignupRequest request) {
+    public ResponseEntity<MeResponse> signup(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(request));
     }
 
