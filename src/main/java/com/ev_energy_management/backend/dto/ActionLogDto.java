@@ -10,5 +10,6 @@ public record ActionLogDto(
         UUID targetId,
         String detail,
         OffsetDateTime createdAt,
-        UUID userId
+        UUID userId,
+        String userName
 ) {}

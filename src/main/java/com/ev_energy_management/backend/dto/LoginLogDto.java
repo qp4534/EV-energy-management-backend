@@ -11,5 +11,6 @@ public record LoginLogDto(
         String status,
         OffsetDateTime createdAt,
         UUID userId,
+        String userName,
         String failReason
 ) {}
