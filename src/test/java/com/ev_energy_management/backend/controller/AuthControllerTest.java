@@ -20,6 +20,7 @@ import com.ev_energy_management.backend.security.JwtTokenProvider;
 import com.ev_energy_management.backend.security.TokenBlacklistService;
 import com.ev_energy_management.backend.service.AuthService;
 import com.ev_energy_management.backend.service.EmailVerificationService;
+import com.ev_energy_management.backend.service.S3Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private S3Service s3Service;
 
     private ObjectMapper objectMapper;
 
