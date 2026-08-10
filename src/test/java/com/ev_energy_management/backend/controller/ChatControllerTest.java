@@ -6,6 +6,7 @@ import com.ev_energy_management.backend.exception.AiServiceUnavailableException;
 import com.ev_energy_management.backend.exception.InvalidRequestException;
 import com.ev_energy_management.backend.security.JwtAuthenticationFilter;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
+import com.ev_energy_management.backend.security.TokenBlacklistService;
 import com.ev_energy_management.backend.service.ChatService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ class ChatControllerTest {
     private JwtTokenProvider jwtTokenProvider;
     @MockitoBean
     private ChatService chatService;
+    // isBlacklisted()가 기본 false를 반환하도록 목으로 대체 (실제 Redis 연결 없이 슬라이스 테스트).
+    @MockitoBean
+    private TokenBlacklistService tokenBlacklistService;
 
     @Test
     void chatRequiresJwt() throws Exception {
