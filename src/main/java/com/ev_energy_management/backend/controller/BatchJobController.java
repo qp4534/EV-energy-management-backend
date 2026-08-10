@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.BatchJobDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.BatchJobService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,5 +44,13 @@ public class BatchJobController {
     public ResponseEntity<Void> deleteBatchJob(@PathVariable String jobId) {
         batchJobService.delete(jobId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{jobId}/run")
+    public BatchJobDto runBatchJob(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable String jobId
+    ) {
+        return batchJobService.run(actor, jobId);
     }
 }
