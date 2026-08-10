@@ -1,13 +1,25 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.UserDto;
+import com.ev_energy_management.backend.dto.dashboard.AccountStatusTrendDto;
+import com.ev_energy_management.backend.dto.dashboard.MemberFlowDto;
+import com.ev_energy_management.backend.dto.dashboard.UserRoleDistributionDto;
+import com.ev_energy_management.backend.dto.statsreport.MemberTrendDto;
+import com.ev_energy_management.backend.dto.statsreport.UserSummaryStatsDto;
+import com.ev_energy_management.backend.dto.statsreport.UserTypeDistributionDto;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.UserRepository;
+import com.ev_energy_management.backend.util.MaskingUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -70,7 +82,7 @@ public class UserService {
     private UserDto toDto(UserEntity entity) {
         return new UserDto(
                 entity.getUserId(),
-                entity.getEmail(),
+                MaskingUtils.maskEmail(entity.getEmail()),
                 entity.getPasswordHash(),
                 entity.getRole(),
                 entity.getBirth(),
@@ -78,12 +90,152 @@ public class UserService {
                 entity.getLoginFailed(),
                 entity.getIsLocked(),
                 entity.getPermissions(),
-                entity.getName(),
-                entity.getPhone(),
+                MaskingUtils.maskName(entity.getName()),
+                MaskingUtils.maskPhone(entity.getPhone()),
                 entity.getProfileImageUrl(),
                 entity.getCreatedAt(),
                 entity.getEmailVerified(),
                 entity.getLockedAt()
+        );
+    }
+
+    public void requestPasswordReset(UUID userId) {
+        // TODO: 실제 이메일 발송 로직은 나중에 구현
+        System.out.println("[비밀번호 재설정 요청] userId=" + userId);
+    }
+
+    // 관리자 메인 "이용자" 카드 - 관리자/관제자 인원수
+    public List<UserRoleDistributionDto> getRoleDistribution() {
+        List<UserEntity> users = userRepository.findAll();
+        Map<String, Long> counts = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                .filter(u -> "관리자".equals(u.getRole()) || "관제자".equals(u.getRole()))
+                .collect(Collectors.groupingBy(UserEntity::getRole, Collectors.counting()));
+        return List.of(
+                new UserRoleDistributionDto("관리자", counts.getOrDefault("관리자", 0L)),
+                new UserRoleDistributionDto("관제자", counts.getOrDefault("관제자", 0L))
+        );
+    }
+
+    // 신규 가입자 / 탈퇴자 추이 (최근 7개월, 이번 달 포함)
+    public List<MemberFlowDto> getMemberFlow() {
+        List<UserEntity> users = userRepository.findAll();
+        List<YearMonth> months = lastNMonths(7);
+
+        List<MemberFlowDto> result = new ArrayList<>();
+        for (YearMonth ym : months) {
+            long joined = users.stream()
+                    .filter(u -> u.getCreatedAt() != null && monthOf(u.getCreatedAt()).equals(ym))
+                    .count();
+            long withdrawn = users.stream()
+                    .filter(u -> u.getDeletedAt() != null && monthOf(u.getDeletedAt()).equals(ym))
+                    .count();
+            result.add(new MemberFlowDto(monthLabel(ym), joined, withdrawn));
+        }
+        return result;
+    }
+
+    // 계정 상태 추이 (최근 7개월, 그 달까지 가입한 회원 기준 정상/잠금 누적 카운트)
+    public List<AccountStatusTrendDto> getAccountStatusTrend() {
+        List<UserEntity> users = userRepository.findAll();
+        List<YearMonth> months = lastNMonths(7);
+
+        List<AccountStatusTrendDto> result = new ArrayList<>();
+        for (YearMonth ym : months) {
+            List<UserEntity> upToMonth = users.stream()
+                    .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(ym))
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                    .toList();
+            long locked = upToMonth.stream().filter(u -> Boolean.TRUE.equals(u.getIsLocked())).count();
+            long active = upToMonth.size() - locked;
+            result.add(new AccountStatusTrendDto(monthLabel(ym), active, locked));
+        }
+        return result;
+    }
+
+    private List<YearMonth> lastNMonths(int n) {
+        YearMonth current = YearMonth.now();
+        List<YearMonth> months = new ArrayList<>();
+        for (int i = n - 1; i >= 0; i--) {
+            months.add(current.minusMonths(i));
+        }
+        return months;
+    }
+
+    private YearMonth monthOf(java.time.OffsetDateTime dt) {
+        return YearMonth.from(dt.atZoneSameInstant(ZoneOffset.systemDefault()));
+    }
+
+    private String monthLabel(YearMonth ym) {
+        return ym.getMonthValue() + "월";
+    }
+
+    // 유형별 분포 (관리자/관제자/이용자 3종 인원수)
+    public List<UserTypeDistributionDto> getUserTypeDistribution() {
+        List<UserEntity> users = userRepository.findAll();
+        Map<String, Long> counts = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                .collect(Collectors.groupingBy(UserEntity::getRole, Collectors.counting()));
+        return List.of(
+                new UserTypeDistributionDto("관리자", counts.getOrDefault("관리자", 0L)),
+                new UserTypeDistributionDto("관제자", counts.getOrDefault("관제자", 0L)),
+                new UserTypeDistributionDto("이용자", counts.getOrDefault("이용자", 0L))
+        );
+    }
+
+    // 월별 가입자 추이 (그 달까지 누적된 전체 회원 수, 최근 7개월)
+    public List<MemberTrendDto> getMemberTrend() {
+        List<UserEntity> users = userRepository.findAll();
+        List<YearMonth> months = lastNMonths(7);
+
+        List<MemberTrendDto> result = new ArrayList<>();
+        for (YearMonth ym : months) {
+            long total = users.stream()
+                    .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(ym))
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                    .count();
+            result.add(new MemberTrendDto(monthLabel(ym), total));
+        }
+        return result;
+    }
+
+    // 이용자 탭 상단 요약 카드 3종
+    public UserSummaryStatsDto getUserSummaryStats() {
+        List<UserEntity> users = userRepository.findAll();
+        List<UserEntity> alive = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                .toList();
+
+        YearMonth thisMonth = YearMonth.now();
+        YearMonth lastMonth = thisMonth.minusMonths(1);
+
+        long totalUsers = alive.size();
+        long totalUsersLastMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(lastMonth))
+                .count();
+        long totalUsersDelta = totalUsers - totalUsersLastMonth;
+
+        long lockedNow = alive.stream().filter(u -> Boolean.TRUE.equals(u.getIsLocked())).count();
+        double activeRate = totalUsers == 0 ? 0 : Math.round((double) (totalUsers - lockedNow) / totalUsers * 1000) / 10.0;
+
+        long totalLastMonthAll = totalUsersLastMonth;
+        long lockedLastMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(lastMonth))
+                .filter(u -> Boolean.TRUE.equals(u.getIsLocked()))
+                .count();
+        double activeRateLastMonth = totalLastMonthAll == 0 ? 0
+                : Math.round((double) (totalLastMonthAll - lockedLastMonth) / totalLastMonthAll * 1000) / 10.0;
+        double activeRateDelta = Math.round((activeRate - activeRateLastMonth) * 10) / 10.0;
+
+        List<UserEntity> newThisMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && monthOf(u.getCreatedAt()).equals(thisMonth))
+                .toList();
+        long newUsersGeneral = newThisMonth.stream().filter(u -> "이용자".equals(u.getRole())).count();
+        long newUsersController = newThisMonth.stream().filter(u -> "관제자".equals(u.getRole())).count();
+
+        return new UserSummaryStatsDto(
+                totalUsers, totalUsersDelta, activeRate, activeRateDelta,
+                (long) newThisMonth.size(), newUsersGeneral, newUsersController
         );
     }
 }

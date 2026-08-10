@@ -1,13 +1,18 @@
 package com.ev_energy_management.backend.service;
 
 import com.ev_energy_management.backend.dto.BatteryPassportDto;
+import com.ev_energy_management.backend.dto.statsreport.BatteryGradeDistributionDto;
+import com.ev_energy_management.backend.dto.statsreport.BatterySohTrendDto;
+import com.ev_energy_management.backend.dto.statsreport.RecentDiagnosisDto;
 import com.ev_energy_management.backend.entity.BatteryPassportEntity;
 import com.ev_energy_management.backend.repository.BatteryPassportRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.time.YearMonth;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class BatteryPassportService {
@@ -107,5 +112,77 @@ public class BatteryPassportService {
                 entity.getManufacturedAt(),
                 entity.getInstalledAt()
         );
+    }
+
+    // 통계/리포트 "배터리 진단" 탭 - 등급별 분포 (reuse_status 기준: 양호/노후/수명말기)
+    public List<BatteryGradeDistributionDto> getGradeDistribution() {
+        List<BatteryPassportEntity> batteries = batteryPassportRepository.findAll();
+        Map<String, Long> counts = batteries.stream()
+                .filter(b -> b.getReuseStatus() != null)
+                .collect(Collectors.groupingBy(BatteryPassportEntity::getReuseStatus, Collectors.counting()));
+
+        // RiskLevelCard 색상 타입(normal=양호/caution=노후/emergency=수명말기)에 맞춰 key 부여
+        return List.of(
+                new BatteryGradeDistributionDto("normal", "양호", counts.getOrDefault("양호", 0L)),
+                new BatteryGradeDistributionDto("caution", "노후", counts.getOrDefault("노후", 0L)),
+                new BatteryGradeDistributionDto("emergency", "수명말기", counts.getOrDefault("수명말기", 0L))
+        );
+    }
+
+    // 통계/리포트 "배터리 진단" 탭 - 평균 SOH 추이
+    // TEMP: 진짜 월별 SOH 이력이 없어서, "그 달에 마지막 점검(last_inspected_at)한 배터리들의
+    // 현재 soh_score 평균"으로 근사함. 정확한 시계열이 필요하면 SOH 이력 테이블이 별도로 있어야 함.
+    public List<BatterySohTrendDto> getSohTrend() {
+        List<BatteryPassportEntity> batteries = batteryPassportRepository.findAll();
+        List<YearMonth> months = lastNMonths(7);
+
+        List<BatterySohTrendDto> result = new ArrayList<>();
+        for (YearMonth ym : months) {
+            List<BigDecimal> sohValues = batteries.stream()
+                    .filter(b -> b.getLastInspectedAt() != null
+                            && YearMonth.from(b.getLastInspectedAt()).equals(ym)
+                            && b.getSohScore() != null)
+                    .map(BatteryPassportEntity::getSohScore)
+                    .toList();
+            double avg = sohValues.isEmpty() ? 0
+                    : sohValues.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0);
+            result.add(new BatterySohTrendDto(monthLabel(ym), Math.round(avg * 10) / 10.0));
+        }
+        return result;
+    }
+
+    private List<YearMonth> lastNMonths(int n) {
+        YearMonth current = YearMonth.now();
+        List<YearMonth> months = new ArrayList<>();
+        for (int i = n - 1; i >= 0; i--) {
+            months.add(current.minusMonths(i));
+        }
+        return months;
+    }
+
+    private String monthLabel(YearMonth ym) {
+        return ym.getMonthValue() + "월";
+    }
+
+    // 통계/리포트 "배터리 진단" 탭
+    // 점검일(last_inspected_at) 최신순으로 상위 N건
+    public List<RecentDiagnosisDto> getRecentDiagnoses(int limit) {
+        List<BatteryPassportEntity> batteries = batteryPassportRepository.findAll();
+        return batteries.stream()
+                .filter(b -> b.getLastInspectedAt() != null)
+                .sorted(Comparator.comparing(BatteryPassportEntity::getLastInspectedAt).reversed())
+                .limit(limit)
+                .map(b -> new RecentDiagnosisDto(
+                        shortBatteryId(b.getBatteryId()),
+                        b.getGradeDetail(),
+                        b.getSohScore() == null ? null : b.getSohScore().doubleValue(),
+                        b.getLastInspectedAt()
+                ))
+                .toList();
+    }
+
+    // UUID 그대로 보여주면 너무 길어서, "BT-XXXX" 형태의 짧은 표시용 ID로 변환
+    private String shortBatteryId(UUID batteryId) {
+        return "BT-" + batteryId.toString().substring(0, 4).toUpperCase();
     }
 }

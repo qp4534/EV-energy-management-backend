@@ -32,5 +32,5 @@ public class NotificationMatrixEntity {
     private Boolean isEnabled;
 
     @Column(name = "`channel_id`", nullable = false)
-    private UUID channelId;
+    private String channelId;
 }
