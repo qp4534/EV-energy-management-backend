@@ -7,6 +7,8 @@ import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
 import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
+import com.ev_energy_management.backend.dto.auth.ProfileImageUploadUrlRequest;
+import com.ev_energy_management.backend.dto.auth.ProfileImageUploadUrlResponse;
 import com.ev_energy_management.backend.dto.auth.ProfileUpdateRequest;
 import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
@@ -14,6 +16,7 @@ import com.ev_energy_management.backend.dto.auth.VerifyEmailCodeRequest;
 import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.AuthService;
 import com.ev_energy_management.backend.service.EmailVerificationService;
+import com.ev_energy_management.backend.service.S3Service;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -29,10 +32,16 @@ public class AuthController {
 
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
+    private final S3Service s3Service;
 
-    public AuthController(AuthService authService, EmailVerificationService emailVerificationService) {
+    public AuthController(
+            AuthService authService,
+            EmailVerificationService emailVerificationService,
+            S3Service s3Service
+    ) {
         this.authService = authService;
         this.emailVerificationService = emailVerificationService;
+        this.s3Service = s3Service;
     }
 
     @PostMapping("/email/send-code")
@@ -94,6 +103,14 @@ public class AuthController {
     @PatchMapping("/me")
     public MeResponse updateMe(@AuthenticationPrincipal AuthenticatedUser user, @RequestBody ProfileUpdateRequest request) {
         return authService.updateProfile(user, request);
+    }
+
+    @PostMapping("/me/profile-image/upload-url")
+    public ProfileImageUploadUrlResponse createProfileImageUploadUrl(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestBody ProfileImageUploadUrlRequest request
+    ) {
+        return s3Service.createProfileImageUploadUrl(user.userId(), request.contentType());
     }
 
     @DeleteMapping("/me")
