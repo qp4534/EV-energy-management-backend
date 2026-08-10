@@ -63,6 +63,9 @@ public class UserEntity {
     @Column(name = "`profile_image_url`")
     private String profileImageUrl;
 
+    @Column(name = "`push_enabled`", nullable = false)
+    private Boolean pushEnabled;
+
     @Column(name = "`created_at`", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -85,6 +88,9 @@ public class UserEntity {
         }
         if (isDeleted == null) {
             isDeleted = false;
+        }
+        if (pushEnabled == null) {
+            pushEnabled = true;
         }
     }
 }

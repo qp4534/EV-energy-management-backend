@@ -412,3 +412,8 @@ ALTER TABLE "USER" ADD CONSTRAINT "UQ_USER_EMAIL" UNIQUE ("email");
 -- 실제 RDS에는 수동으로 한 번 실행해야 함.
 ALTER TABLE "USER" ADD COLUMN "is_deleted" BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE "USER" ADD COLUMN "deleted_at" TIMESTAMPTZ NULL;
+
+-- 마이페이지 알림(푸시) 설정 ON/OFF 저장용. 디바이스 토큰 등록/실제 발송은 별도 기능이고,
+-- 이건 그 전 단계로 사용자가 켜고 끈 상태만 저장한다. ddl-auto=none이라 실제 RDS에는
+-- 수동으로 한 번 실행해야 함.
+ALTER TABLE "USER" ADD COLUMN "push_enabled" BOOLEAN DEFAULT TRUE NOT NULL;

@@ -162,6 +162,7 @@ public class AuthService {
                 .name(request.name())
                 .phone(request.phone())
                 .emailVerified(true)
+                .pushEnabled(true)
                 .build();
         UserEntity saved = userRepository.save(entity);
 
@@ -267,6 +268,10 @@ public class AuthService {
             user.setProfileImageUrl(request.profileImageUrl());
             changedFields.add("profileImageUrl");
         }
+        if (request.pushEnabled() != null && !request.pushEnabled().equals(user.getPushEnabled())) {
+            user.setPushEnabled(request.pushEnabled());
+            changedFields.add("pushEnabled");
+        }
         if (request.newPassword() != null && !request.newPassword().isBlank()) {
             if (!PASSWORD_POLICY.matcher(request.newPassword()).matches()) {
                 throw new InvalidPasswordException(PASSWORD_POLICY_MESSAGE);
@@ -331,6 +336,7 @@ public class AuthService {
                 entity.getName(),
                 entity.getPhone(),
                 entity.getProfileImageUrl(),
+                entity.getPushEnabled(),
                 entity.getBirth(),
                 entity.getPermissions(),
                 entity.getEmailVerified(),
