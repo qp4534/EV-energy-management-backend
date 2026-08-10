@@ -6,5 +6,5 @@ public record NotificationMatrixDto(
         UUID matrixId,
         String riskLevel,
         Boolean isEnabled,
-        UUID channelId
+        String channelId
 ) {}

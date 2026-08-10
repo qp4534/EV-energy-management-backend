@@ -5,6 +5,7 @@ import com.ev_energy_management.backend.entity.LoginLogEntity;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.LoginLogRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
+import com.ev_energy_management.backend.util.MaskingUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -76,13 +77,13 @@ public class LoginLogService {
     private LoginLogDto toDto(LoginLogEntity entity, Map<UUID, String> userNamesById) {
         return new LoginLogDto(
                 entity.getLogId(),
-                entity.getIpAddress(),
+                MaskingUtils.maskIp(entity.getIpAddress()),
                 entity.getUserAgent(),
                 entity.getLocation(),
                 entity.getStatus(),
                 entity.getCreatedAt(),
                 entity.getUserId(),
-                userNamesById.get(entity.getUserId()),
+                MaskingUtils.maskName(userNamesById.get(entity.getUserId())),
                 entity.getFailReason()
         );
     }

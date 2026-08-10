@@ -22,9 +22,8 @@ public class NotificationChannelEntity {
 
     @Id
     @GeneratedValue
-    @UuidGenerator
     @Column(name = "`channel_id`")
-    private UUID channelId;
+    private String channelId;
 
     @Column(name = "`channel_name`", nullable = false)
     private String channelName;

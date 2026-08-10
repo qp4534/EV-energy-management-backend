@@ -4,7 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record NotificationChannelDto(
-        UUID channelId,
+        String channelId,
         String channelName,
         Boolean isActive,
         OffsetDateTime updatedAt

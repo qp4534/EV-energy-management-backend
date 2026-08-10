@@ -44,4 +44,9 @@ public class ExternalIntegrationController {
         externalIntegrationService.delete(integrationId);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{integrationId}/reissue")
+    public ExternalIntegrationDto reissueKey(@PathVariable UUID integrationId) {
+        return externalIntegrationService.reissueKey(integrationId);
+    }
 }
