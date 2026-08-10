@@ -11,6 +11,7 @@ public record MeResponse(
         String name,
         String phone,
         String profileImageUrl,
+        Boolean pushEnabled,
         LocalDate birth,
         String permissions,
         Boolean emailVerified,

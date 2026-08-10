@@ -80,7 +80,7 @@ class AuthControllerTest {
         UUID userId = UUID.randomUUID();
         when(authService.signup(any())).thenReturn(new MeResponse(
                 userId, "new@user.com", "관제자", "홍길동", "010-0000-0000",
-                null, LocalDate.of(1990, 1, 1), "{}", true, null
+                null, true, LocalDate.of(1990, 1, 1), "{}", true, null
         ));
 
         mockMvc.perform(post("/api/auth/signup")
@@ -236,7 +236,7 @@ class AuthControllerTest {
         String token = jwtTokenProvider.generateToken(userId, "관제자");
         when(authService.getMe(any())).thenReturn(new MeResponse(
                 userId, "user@user.com", "관제자", "홍길동", "010-0000-0000",
-                null, LocalDate.of(1990, 1, 1), "{}", true, null
+                null, true, LocalDate.of(1990, 1, 1), "{}", true, null
         ));
 
         mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))

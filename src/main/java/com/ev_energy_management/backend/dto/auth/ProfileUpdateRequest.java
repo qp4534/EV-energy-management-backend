@@ -4,6 +4,7 @@ public record ProfileUpdateRequest(
         String name,
         String phone,
         String profileImageUrl,
+        Boolean pushEnabled,
         String currentPassword,
         String newPassword
 ) {}
