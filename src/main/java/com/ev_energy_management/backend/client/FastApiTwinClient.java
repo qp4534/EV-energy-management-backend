@@ -2,8 +2,11 @@ package com.ev_energy_management.backend.client;
 
 import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
 import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
+import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -17,8 +20,17 @@ public class FastApiTwinClient {
 
     private final RestClient restClient;
 
-    public FastApiTwinClient(@Value("${fastapi.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    @Autowired
+    public FastApiTwinClient(
+            @Value("${fastapi.base-url}") String baseUrl,
+            @Value("${fastapi.connect-timeout-ms:1000}") int connectTimeoutMs,
+            @Value("${fastapi.read-timeout-ms:1500}") int readTimeoutMs
+    ) {
+        this.restClient = buildRestClient(baseUrl, connectTimeoutMs, readTimeoutMs);
+    }
+
+    FastApiTwinClient(RestClient restClient) {
+        this.restClient = restClient;
     }
 
     public FastApiTwinFrameResponse evaluate(UUID vehicleId, BmsTwinSampleRequest request) {
@@ -46,5 +58,35 @@ public class FastApiTwinClient {
                 .body(payload)
                 .retrieve()
                 .body(FastApiTwinFrameResponse.class);
+    }
+
+    public FastApiTwinMeasurementResponse latestMeasurement(
+            UUID vehicleId,
+            int staleAfterSeconds
+    ) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/twins/vehicles/{vehicleId}/latest/measurement")
+                        .queryParam("stale_after_seconds", staleAfterSeconds)
+                        .build(vehicleId))
+                .retrieve()
+                .body(FastApiTwinMeasurementResponse.class);
+    }
+
+    private static RestClient buildRestClient(
+            String baseUrl,
+            int connectTimeoutMs,
+            int readTimeoutMs
+    ) {
+        if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
+            throw new IllegalArgumentException("FastAPI Twin timeouts must be positive");
+        }
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeoutMs);
+        requestFactory.setReadTimeout(readTimeoutMs);
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
+                .build();
     }
 }

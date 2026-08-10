@@ -32,6 +32,11 @@ public class BatteryPassportService {
                 .orElseThrow(() -> new EntityNotFoundException("Battery passport not found: " + batteryId)));
     }
 
+    public BatteryPassportDto findByCarId(UUID carId) {
+        return toDto(batteryPassportRepository.findByCarId(carId)
+                .orElseThrow(() -> new EntityNotFoundException("Battery passport not found for car: " + carId)));
+    }
+
     public BatteryPassportDto create(BatteryPassportDto request) {
         BatteryPassportEntity entity = BatteryPassportEntity.builder()
                 .manufacturer(request.manufacturer())

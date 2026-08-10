@@ -29,6 +29,15 @@ AI 추론(배터리 진단, 화재 위험, 충전 수요 예측, 챗봇, PDF 생
   (로그 관리), `BatchJobController`/`BatchJobLogController`, `NotificationChannelController`/
   `NotificationMatrixController`, `ExternalIntegrationController`
 
+### 차량 상세 배터리 온도 계약
+
+- `GET /api/battery-passports/car/{carId}`: 차량에 정확히 연결된 정적 여권 정보
+- `GET /api/twin-frames/cars/{carId}/latest-measurement?staleAfterSeconds=10`: FastAPI 최신 Twin 측정값
+
+실시간 온도는 두 번째 응답의 `maxCellTemperatureC`이며 `isStale`, `observedAt`을
+함께 확인해야 한다. Twin 호출 실패 시 다른 차량의 여권이나
+`BATTERY_PASSPORT.current_temp`를 실시간 온도로 대체하지 않는다.
+
 ## 로컬 실행
 
 ```bash

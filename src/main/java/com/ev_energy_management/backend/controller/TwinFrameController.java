@@ -2,11 +2,13 @@ package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
 import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
+import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
 import com.ev_energy_management.backend.dto.TwinFrameDto;
 import com.ev_energy_management.backend.service.TwinFrameService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,9 +53,23 @@ public class TwinFrameController {
                 .body(twinFrameService.evaluateBmsSample(carId, request));
     }
 
+    @GetMapping("/cars/{carId}/latest-measurement")
+    public FastApiTwinMeasurementResponse getLatestMeasurement(
+            @PathVariable UUID carId,
+            @RequestParam(defaultValue = "10") int staleAfterSeconds
+    ) {
+        return twinFrameService.latestMeasurement(carId, staleAfterSeconds);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleInvalidBmsSample(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(exception.getMessage());
+    }
+
+    @ExceptionHandler(HttpClientErrorException.NotFound.class)
+    public ResponseEntity<String> handleMissingLiveTwin(HttpClientErrorException.NotFound exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body("No live Twin measurement is available for this vehicle");
     }
 
     @ExceptionHandler(RestClientException.class)
