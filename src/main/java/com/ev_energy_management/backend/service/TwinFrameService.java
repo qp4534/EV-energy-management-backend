@@ -3,6 +3,7 @@ package com.ev_energy_management.backend.service;
 import com.ev_energy_management.backend.client.FastApiTwinClient;
 import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
 import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
+import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
 import com.ev_energy_management.backend.dto.TwinFrameDto;
 import com.ev_energy_management.backend.entity.TwinFrameEntity;
 import com.ev_energy_management.backend.repository.TwinFrameRepository;
@@ -63,6 +64,19 @@ public class TwinFrameService {
     public FastApiTwinFrameResponse evaluateBmsSample(UUID carId, BmsTwinSampleRequest request) {
         validateBmsRequest(carId, request);
         return fastApiTwinClient.evaluate(carId, request);
+    }
+
+    public FastApiTwinMeasurementResponse latestMeasurement(
+            UUID carId,
+            int staleAfterSeconds
+    ) {
+        if (carId == null) {
+            throw new IllegalArgumentException("carId is required");
+        }
+        if (staleAfterSeconds < 1 || staleAfterSeconds > 300) {
+            throw new IllegalArgumentException("staleAfterSeconds must be between 1 and 300");
+        }
+        return fastApiTwinClient.latestMeasurement(carId, staleAfterSeconds);
     }
 
     public TwinFrameDto update(UUID frameId, TwinFrameDto request) {

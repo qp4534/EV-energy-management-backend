@@ -29,6 +29,11 @@ public class BatteryPassportController {
         return batteryPassportService.findById(batteryId);
     }
 
+    @GetMapping("/car/{carId}")
+    public BatteryPassportDto getBatteryPassportByCar(@PathVariable UUID carId) {
+        return batteryPassportService.findByCarId(carId);
+    }
+
     @PostMapping
     public ResponseEntity<BatteryPassportDto> createBatteryPassport(@RequestBody BatteryPassportDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(batteryPassportService.create(request));
