@@ -181,7 +181,12 @@ public class AuthService {
         return toMeResponse(saved);
     }
 
-    @Transactional
+    // 실패 시 던지는 InvalidCredentialsException/AccountLockedException은 둘 다 RuntimeException이라
+    // 기본 설정이면 Spring이 트랜잭션을 통째로 롤백한다 - 그러면 예외를 던지기 직전에 기록한
+    // loginFailed 증가/계정 잠금/로그인 로그가 전부 취소되어 버린다(로그인 실패 추적 기능이
+    // 무의미해짐). noRollbackFor로 이 두 예외는 롤백 대상에서 제외해서, "실패 기록은 남기고
+    // 클라이언트에는 실패로 응답한다"가 실제로 같이 성립하게 한다.
+    @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class})
     public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
         UserEntity user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
@@ -199,14 +204,28 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             int failedCount = user.getLoginFailed() == null ? 1 : user.getLoginFailed() + 1;
             user.setLoginFailed(failedCount);
+            boolean justLocked = failedCount >= MAX_LOGIN_ATTEMPTS;
             String failReason = "BAD_CREDENTIALS";
-            if (failedCount >= MAX_LOGIN_ATTEMPTS) {
+            if (justLocked) {
                 user.setIsLocked(true);
                 user.setLockedAt(OffsetDateTime.now());
                 failReason = "ACCOUNT_LOCKED";
             }
             userRepository.save(user);
             writeLoginLog(user.getUserId(), ipAddress, userAgent, "FAILED", failReason);
+            // 잠기게 만든 바로 그 시도에도 일반 오류만 던지면, 사용자는 다음 시도에서야
+            // (isLocked 체크에 걸려서) 잠긴 걸 알게 된다. 어차피 다음 시도에서 드러날
+            // 정보라 여기서 바로 알려줘도 계정 존재 여부가 추가로 새지는 않는다.
+            if (justLocked) {
+                throw new AccountLockedException("5회 이상 로그인에 실패해 계정이 잠겼습니다. 관리자에게 문의해주세요.");
+            }
+            // 잠기기 바로 1번 전(마지막 기회)에만 경고를 얹는다. 이 시점부터는 다음 실패로
+            // 계정이 잠긴다는 게 이미 확정적이라(어느 이메일이든 동일 로직) 추가로 새는
+            // 정보가 크지 않다. 그 전 시도들은 여전히 완전히 동일한 문구만 준다.
+            if (failedCount == MAX_LOGIN_ATTEMPTS - 1) {
+                throw new InvalidCredentialsException(
+                        "이메일 또는 비밀번호가 올바르지 않습니다. 1회 더 실패하면 계정이 잠깁니다.");
+            }
             throw new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 

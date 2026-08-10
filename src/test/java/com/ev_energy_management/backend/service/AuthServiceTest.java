@@ -186,6 +186,24 @@ class AuthServiceTest {
     }
 
     @Test
+    void fourthConsecutiveFailureWarnsOneAttemptLeft() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder()
+                .userId(userId).email("almost-locked@user.com").passwordHash("hashed")
+                .role("관제자").loginFailed(3).isLocked(false)
+                .build();
+        when(userRepository.findByEmail("almost-locked@user.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        InvalidCredentialsException thrown = assertThrows(InvalidCredentialsException.class,
+                () -> authService.login(new LoginRequest("almost-locked@user.com", "wrong"), "1.1.1.1", "test-agent"));
+
+        assertEquals(4, user.getLoginFailed());
+        assertFalse(Boolean.TRUE.equals(user.getIsLocked()));
+        assertTrue(thrown.getMessage().contains("1회 더 실패하면"));
+    }
+
+    @Test
     void fifthConsecutiveFailureLocksAccount() {
         UUID userId = UUID.randomUUID();
         UserEntity user = UserEntity.builder()
@@ -195,7 +213,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail("locking@user.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
-        assertThrows(InvalidCredentialsException.class,
+        assertThrows(AccountLockedException.class,
                 () -> authService.login(new LoginRequest("locking@user.com", "wrong"), "1.1.1.1", "test-agent"));
 
         assertEquals(5, user.getLoginFailed());
