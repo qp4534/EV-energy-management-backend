@@ -4,15 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -20,6 +24,25 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class FastApiTwinClientTest {
+
+    @Test
+    void springCanCreateTheClientWhenTheTestConstructorAlsoExists() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().getPropertySources().addFirst(new MapPropertySource(
+                    "fastapiTwinClientTest",
+                    Map.of(
+                            "fastapi.base-url", "http://fastapi",
+                            "fastapi.connect-timeout-ms", "1000",
+                            "fastapi.read-timeout-ms", "1500"
+                    )
+            ));
+            context.registerBean(FastApiTwinClient.class);
+
+            context.refresh();
+
+            assertNotNull(context.getBean(FastApiTwinClient.class));
+        }
+    }
 
     @Test
     void requestsLatestMeasurementForTheExactVehicle() {
