@@ -3,20 +3,25 @@ package com.ev_energy_management.backend.service;
 import com.ev_energy_management.backend.dto.ExternalIntegrationDto;
 import com.ev_energy_management.backend.entity.ExternalIntegrationEntity;
 import com.ev_energy_management.backend.repository.ExternalIntegrationRepository;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.util.MaskingUtils;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class ExternalIntegrationService {
 
     private final ExternalIntegrationRepository externalIntegrationRepository;
+    private final ActionLogWriter actionLogWriter;
 
-    public ExternalIntegrationService(ExternalIntegrationRepository externalIntegrationRepository) {
+    public ExternalIntegrationService(ExternalIntegrationRepository externalIntegrationRepository,
+                                      ActionLogWriter actionLogWriter) {
         this.externalIntegrationRepository = externalIntegrationRepository;
+        this.actionLogWriter = actionLogWriter;
     }
 
     public List<ExternalIntegrationDto> findAll() {
@@ -54,7 +59,7 @@ public class ExternalIntegrationService {
         externalIntegrationRepository.deleteById(integrationId);
     }
 
-    public ExternalIntegrationDto reissueKey(UUID integrationId) {
+    public ExternalIntegrationDto reissueKey(AuthenticatedUser actor, UUID integrationId) {
         ExternalIntegrationEntity entity = externalIntegrationRepository.findById(integrationId)
                 .orElseThrow(() -> new EntityNotFoundException("External integration not found: " + integrationId));
 
@@ -62,6 +67,14 @@ public class ExternalIntegrationService {
         entity.setApiKey(newKey);
         entity.setLastConnectedAt(null); // 재발급했으니 재연결 전까지는 미연결 상태로
         ExternalIntegrationEntity saved = externalIntegrationRepository.save(entity);
+
+        actionLogWriter.write(
+                actor == null ? null : actor.userId(),
+                "INTEGRATION_KEY_REISSUE",
+                "EXTERNAL_INTEGRATION",
+                integrationId,
+                Map.of("name", saved.getName() == null ? "" : saved.getName())
+        );
 
         return new ExternalIntegrationDto(
                 saved.getIntegrationId(),
