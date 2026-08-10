@@ -4,6 +4,9 @@ import com.ev_energy_management.backend.dto.UserDto;
 import com.ev_energy_management.backend.dto.dashboard.AccountStatusTrendDto;
 import com.ev_energy_management.backend.dto.dashboard.MemberFlowDto;
 import com.ev_energy_management.backend.dto.dashboard.UserRoleDistributionDto;
+import com.ev_energy_management.backend.dto.statsreport.MemberTrendDto;
+import com.ev_energy_management.backend.dto.statsreport.UserSummaryStatsDto;
+import com.ev_energy_management.backend.dto.statsreport.UserTypeDistributionDto;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.UserRepository;
 import com.ev_energy_management.backend.util.MaskingUtils;
@@ -165,5 +168,74 @@ public class UserService {
 
     private String monthLabel(YearMonth ym) {
         return ym.getMonthValue() + "월";
+    }
+
+    // 유형별 분포 (관리자/관제자/이용자 3종 인원수)
+    public List<UserTypeDistributionDto> getUserTypeDistribution() {
+        List<UserEntity> users = userRepository.findAll();
+        Map<String, Long> counts = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                .collect(Collectors.groupingBy(UserEntity::getRole, Collectors.counting()));
+        return List.of(
+                new UserTypeDistributionDto("관리자", counts.getOrDefault("관리자", 0L)),
+                new UserTypeDistributionDto("관제자", counts.getOrDefault("관제자", 0L)),
+                new UserTypeDistributionDto("이용자", counts.getOrDefault("이용자", 0L))
+        );
+    }
+
+    // 월별 가입자 추이 (그 달까지 누적된 전체 회원 수, 최근 7개월)
+    public List<MemberTrendDto> getMemberTrend() {
+        List<UserEntity> users = userRepository.findAll();
+        List<YearMonth> months = lastNMonths(7);
+
+        List<MemberTrendDto> result = new ArrayList<>();
+        for (YearMonth ym : months) {
+            long total = users.stream()
+                    .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(ym))
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                    .count();
+            result.add(new MemberTrendDto(monthLabel(ym), total));
+        }
+        return result;
+    }
+
+    // 이용자 탭 상단 요약 카드 3종
+    public UserSummaryStatsDto getUserSummaryStats() {
+        List<UserEntity> users = userRepository.findAll();
+        List<UserEntity> alive = users.stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                .toList();
+
+        YearMonth thisMonth = YearMonth.now();
+        YearMonth lastMonth = thisMonth.minusMonths(1);
+
+        long totalUsers = alive.size();
+        long totalUsersLastMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(lastMonth))
+                .count();
+        long totalUsersDelta = totalUsers - totalUsersLastMonth;
+
+        long lockedNow = alive.stream().filter(u -> Boolean.TRUE.equals(u.getIsLocked())).count();
+        double activeRate = totalUsers == 0 ? 0 : Math.round((double) (totalUsers - lockedNow) / totalUsers * 1000) / 10.0;
+
+        long totalLastMonthAll = totalUsersLastMonth;
+        long lockedLastMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && !monthOf(u.getCreatedAt()).isAfter(lastMonth))
+                .filter(u -> Boolean.TRUE.equals(u.getIsLocked()))
+                .count();
+        double activeRateLastMonth = totalLastMonthAll == 0 ? 0
+                : Math.round((double) (totalLastMonthAll - lockedLastMonth) / totalLastMonthAll * 1000) / 10.0;
+        double activeRateDelta = Math.round((activeRate - activeRateLastMonth) * 10) / 10.0;
+
+        List<UserEntity> newThisMonth = alive.stream()
+                .filter(u -> u.getCreatedAt() != null && monthOf(u.getCreatedAt()).equals(thisMonth))
+                .toList();
+        long newUsersGeneral = newThisMonth.stream().filter(u -> "이용자".equals(u.getRole())).count();
+        long newUsersController = newThisMonth.stream().filter(u -> "관제자".equals(u.getRole())).count();
+
+        return new UserSummaryStatsDto(
+                totalUsers, totalUsersDelta, activeRate, activeRateDelta,
+                (long) newThisMonth.size(), newUsersGeneral, newUsersController
+        );
     }
 }
