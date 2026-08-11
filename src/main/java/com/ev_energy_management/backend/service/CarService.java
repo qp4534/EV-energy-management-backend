@@ -5,6 +5,7 @@ import com.ev_energy_management.backend.dto.dashboard.CarModelDistributionDto;
 import com.ev_energy_management.backend.entity.CarEntity;
 import com.ev_energy_management.backend.repository.CarRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -26,8 +27,12 @@ public class CarService {
         this.auditLogService = auditLogService;
     }
 
-    public List<CarDto> findAll() {
-        return carRepository.findAll().stream().map(this::toDto).toList();
+    // 이용자(차주)는 본인 차량만, 관제자/관리자는 관제 목적상 전체 차량을 봐야 해서 그대로 둔다.
+    public List<CarDto> findAll(AuthenticatedUser user) {
+        List<CarEntity> cars = "이용자".equals(user.role())
+                ? carRepository.findByUserId(user.userId())
+                : carRepository.findAll();
+        return cars.stream().map(this::toDto).toList();
     }
 
     public CarDto findById(UUID carId) {
