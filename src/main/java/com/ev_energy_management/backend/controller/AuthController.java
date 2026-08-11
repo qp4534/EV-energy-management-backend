@@ -6,9 +6,9 @@ import com.ev_energy_management.backend.dto.auth.FindEmailResponse;
 import com.ev_energy_management.backend.dto.auth.LoginRequest;
 import com.ev_energy_management.backend.dto.auth.LoginResponse;
 import com.ev_energy_management.backend.dto.auth.MeResponse;
+import com.ev_energy_management.backend.dto.ImageUploadUrlRequest;
+import com.ev_energy_management.backend.dto.ImageUploadUrlResponse;
 import com.ev_energy_management.backend.dto.auth.PasswordResetRequest;
-import com.ev_energy_management.backend.dto.auth.ProfileImageUploadUrlRequest;
-import com.ev_energy_management.backend.dto.auth.ProfileImageUploadUrlResponse;
 import com.ev_energy_management.backend.dto.auth.ProfileUpdateRequest;
 import com.ev_energy_management.backend.dto.auth.SendEmailCodeRequest;
 import com.ev_energy_management.backend.dto.auth.SignupRequest;
@@ -106,9 +106,9 @@ public class AuthController {
     }
 
     @PostMapping("/me/profile-image/upload-url")
-    public ProfileImageUploadUrlResponse createProfileImageUploadUrl(
+    public ImageUploadUrlResponse createProfileImageUploadUrl(
             @AuthenticationPrincipal AuthenticatedUser user,
-            @RequestBody ProfileImageUploadUrlRequest request
+            @RequestBody ImageUploadUrlRequest request
     ) {
         return s3Service.createProfileImageUploadUrl(user.userId(), request.contentType());
     }
