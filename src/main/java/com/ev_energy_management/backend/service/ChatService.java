@@ -36,11 +36,12 @@ public class ChatService {
         }
         String conversationId = normalizeConversationId(request.conversationId());
         if (request.vehicleId() != null) {
-            carAccessService.requireOwner(user, request.vehicleId());
+            carAccessService.requireChatAccess(user, request.vehicleId());
         }
 
         return fastApiChatClient.chat(new FastApiChatRequest(
                 user.userId().toString(),
+                user.role(),
                 request.vehicleId() == null ? null : request.vehicleId().toString(),
                 message,
                 conversationId

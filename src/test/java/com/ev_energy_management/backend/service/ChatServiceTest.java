@@ -58,10 +58,11 @@ class ChatServiceTest {
         );
 
         assertSame(expected, result);
-        verify(carAccessService).requireOwner(user, carId);
+        verify(carAccessService).requireChatAccess(user, carId);
         ArgumentCaptor<FastApiChatRequest> captor = ArgumentCaptor.forClass(FastApiChatRequest.class);
         verify(fastApiChatClient).chat(captor.capture());
         assertEquals(userId.toString(), captor.getValue().userId());
+        assertEquals("사용자", captor.getValue().actorRole());
         assertEquals(carId.toString(), captor.getValue().vehicleId());
         assertEquals("충전 방법 알려줘", captor.getValue().message());
         assertEquals("conversation-1", captor.getValue().conversationId());
@@ -72,7 +73,7 @@ class ChatServiceTest {
         UUID carId = UUID.randomUUID();
         AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "사용자");
         doThrow(new AccessDeniedException("denied"))
-                .when(carAccessService).requireOwner(user, carId);
+                .when(carAccessService).requireChatAccess(user, carId);
 
         assertThrows(
                 AccessDeniedException.class,

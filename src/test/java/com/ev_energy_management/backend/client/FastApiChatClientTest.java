@@ -30,6 +30,7 @@ class FastApiChatClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("X-Internal-Token", "internal-secret"))
                 .andExpect(jsonPath("$.userId").value("user-1"))
+                .andExpect(jsonPath("$.actorRole").value("관제자"))
                 .andExpect(jsonPath("$.vehicleId").value("car-1"))
                 .andExpect(jsonPath("$.message").value("질문"))
                 .andRespond(withSuccess("""
@@ -42,7 +43,7 @@ class FastApiChatClientTest {
                         """, MediaType.APPLICATION_JSON));
 
         ChatMessageResponse response = client.chat(
-                new FastApiChatRequest("user-1", "car-1", "질문", null)
+                new FastApiChatRequest("user-1", "관제자", "car-1", "질문", null)
         );
 
         assertEquals("답변", response.answer());

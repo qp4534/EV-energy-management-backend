@@ -1,8 +1,9 @@
 package com.ev_energy_management.backend.dto.chat;
 
-/** Internal request enriched with the authenticated Spring user identifier. */
+/** Internal request enriched only from the authenticated Spring principal. */
 public record FastApiChatRequest(
         String userId,
+        String actorRole,
         String vehicleId,
         String message,
         String conversationId
