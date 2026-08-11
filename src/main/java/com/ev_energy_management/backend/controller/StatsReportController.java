@@ -21,10 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// 통계/리포트(StatsReport.jsx) 전용 엔드포인트.
-// 별도 Service 없이 이미 있는 도메인 서비스(UserService/BatteryPassportService 등)를 그대로 가져다 씀.
-// "화재예방" 탭의 위험등급별 차량 수는 이미 있는 GET /api/dashboard/vehicle-risk-overview를
-// 프론트에서 그대로 재사용하면 되어서 여기 별도 엔드포인트 없음.
+// 통계/리포트(StatsReport.jsx)
 @RestController
 @RequestMapping("/api/stats-report")
 public class StatsReportController {
@@ -76,13 +73,13 @@ public class StatsReportController {
         return batteryPassportService.getGradeDistribution();
     }
 
-    // 전체 배터리 진단 지표 평균
+    // "배터리 처리" 카드 자리를 대체 - 전체 배터리 진단 지표 평균
     @GetMapping("/battery/metric-average")
     public BatteryMetricAverageDto getBatteryMetricAverage() {
         return batteryDiagnosisMetricService.getMetricAverage();
     }
 
-    // 최근 진단 이력 (기본 6건)
+    // "최근 처리 이력" 표 자리를 대체 - 최근 진단 이력 (기본 6건)
     @GetMapping("/battery/recent-diagnoses")
     public List<RecentDiagnosisDto> getRecentDiagnoses(@RequestParam(defaultValue = "6") int limit) {
         return batteryPassportService.getRecentDiagnoses(limit);
@@ -95,7 +92,7 @@ public class StatsReportController {
     }
 
     @GetMapping("/fire/alert-trend")
-    public List<AlertTrendDto> getAlertTrend() {
-        return anomalyLogService.getAlertTrend();
+    public List<AlertTrendDto> getAlertTrend(@RequestParam(defaultValue = "6") int months) {
+        return anomalyLogService.getAlertTrend(months);
     }
 }

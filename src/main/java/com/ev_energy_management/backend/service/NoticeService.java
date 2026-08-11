@@ -3,20 +3,24 @@ package com.ev_energy_management.backend.service;
 import com.ev_energy_management.backend.dto.NoticeDto;
 import com.ev_energy_management.backend.entity.NoticeEntity;
 import com.ev_energy_management.backend.repository.NoticeRepository;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class NoticeService {
 
     private final NoticeRepository noticeRepository;
+    private final ActionLogWriter actionLogWriter;
 
-    public NoticeService(NoticeRepository noticeRepository) {
+    public NoticeService(NoticeRepository noticeRepository, ActionLogWriter actionLogWriter) {
         this.noticeRepository = noticeRepository;
+        this.actionLogWriter = actionLogWriter;
     }
 
     public List<NoticeDto> findAll() {
@@ -28,7 +32,7 @@ public class NoticeService {
                 .orElseThrow(() -> new EntityNotFoundException("Notice not found: " + noticeId)));
     }
 
-    public NoticeDto create(NoticeDto request) {
+    public NoticeDto create(AuthenticatedUser actor, NoticeDto request) {
         NoticeEntity entity = NoticeEntity.builder()
                 .title(request.title())
                 .content(request.content())
@@ -39,10 +43,19 @@ public class NoticeService {
                 .targetRole(request.targetRole())
                 .viewCount(0)
                 .build();
-        return toDto(noticeRepository.save(entity));
+        NoticeDto saved = toDto(noticeRepository.save(entity));
+
+        actionLogWriter.write(
+                actor == null ? null : actor.userId(),
+                "NOTICE_CREATE",
+                "NOTICE",
+                saved.noticeId(),
+                Map.of("title", request.title() == null ? "" : request.title())
+        );
+        return saved;
     }
 
-    public NoticeDto update(UUID noticeId, NoticeDto request) {
+    public NoticeDto update(AuthenticatedUser actor, UUID noticeId, NoticeDto request) {
         NoticeEntity entity = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("Notice not found: " + noticeId));
         entity.setTitle(request.title());
@@ -54,11 +67,27 @@ public class NoticeService {
         entity.setTargetRole(request.targetRole());
         entity.setViewCount(request.viewCount());
         entity.setUpdatedAt(OffsetDateTime.now());
-        return toDto(noticeRepository.save(entity));
+        NoticeDto saved = toDto(noticeRepository.save(entity));
+
+        actionLogWriter.write(
+                actor == null ? null : actor.userId(),
+                "NOTICE_UPDATE",
+                "NOTICE",
+                noticeId,
+                Map.of("title", request.title() == null ? "" : request.title())
+        );
+        return saved;
     }
 
-    public void delete(UUID noticeId) {
+    public void delete(AuthenticatedUser actor, UUID noticeId) {
         noticeRepository.deleteById(noticeId);
+        actionLogWriter.write(
+                actor == null ? null : actor.userId(),
+                "NOTICE_DELETE",
+                "NOTICE",
+                noticeId,
+                Map.of()
+        );
     }
 
     private NoticeDto toDto(NoticeEntity entity) {

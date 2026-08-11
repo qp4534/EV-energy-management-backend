@@ -5,6 +5,10 @@ import com.ev_energy_management.backend.entity.ActionLogEntity;
 import com.ev_energy_management.backend.entity.UserEntity;
 import com.ev_energy_management.backend.repository.ActionLogRepository;
 import com.ev_energy_management.backend.repository.UserRepository;
+import com.ev_energy_management.backend.util.MaskingUtils;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -71,16 +75,39 @@ public class ActionLogService {
         actionLogRepository.deleteById(actionId);
     }
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private ActionLogDto toDto(ActionLogEntity entity, Map<UUID, String> userNamesById) {
         return new ActionLogDto(
                 entity.getActionId(),
                 entity.getActionType(),
                 entity.getTargetType(),
                 entity.getTargetId(),
-                entity.getDetail(),
+                maskDetail(entity.getDetail()),
                 entity.getCreatedAt(),
                 entity.getUserId(),
-                userNamesById.get(entity.getUserId())
+                MaskingUtils.maskName(userNamesById.get(entity.getUserId()))
         );
+    }
+
+    // detail은 자유 형식 JSON 문자열이라, 그 안에 "owner"/"name" 같은 개인정보성 키가 텍스트 그대로 박혀 들어올 수 있음
+    // 응답 나가기 전에 해당 키만 찾아서 마스킹 처리.
+    private String maskDetail(String detail) {
+        if (detail == null || detail.isBlank()) return detail;
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(detail);
+            if (!node.isObject()) return detail;
+            ObjectNode obj = (ObjectNode) node;
+            if (obj.has("owner")) {
+                obj.put("owner", MaskingUtils.maskName(obj.get("owner").asText()));
+            }
+            if (obj.has("name")) {
+                obj.put("name", MaskingUtils.maskName(obj.get("name").asText()));
+            }
+            return OBJECT_MAPPER.writeValueAsString(obj);
+        } catch (Exception e) {
+            // JSON이 아니거나 파싱 실패하면 마스킹 없이 원본 그대로 (기존 동작 유지)
+            return detail;
+        }
     }
 }

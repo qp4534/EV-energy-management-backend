@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.NotificationMatrixDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.NotificationMatrixService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,8 +37,12 @@ public class NotificationMatrixController {
     }
 
     @PutMapping("/{matrixId}")
-    public NotificationMatrixDto updateNotificationMatrixEntry(@PathVariable UUID matrixId, @RequestBody NotificationMatrixDto request) {
-        return notificationMatrixService.update(matrixId, request);
+    public NotificationMatrixDto updateNotificationMatrixEntry(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID matrixId,
+            @RequestBody NotificationMatrixDto request
+    ) {
+        return notificationMatrixService.update(actor, matrixId, request);
     }
 
     @DeleteMapping("/{matrixId}")

@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.ExternalIntegrationDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.ExternalIntegrationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,7 +48,10 @@ public class ExternalIntegrationController {
     }
 
     @PostMapping("/{integrationId}/reissue")
-    public ExternalIntegrationDto reissueKey(@PathVariable UUID integrationId) {
-        return externalIntegrationService.reissueKey(integrationId);
+    public ExternalIntegrationDto reissueKey(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID integrationId
+    ) {
+        return externalIntegrationService.reissueKey(actor, integrationId);
     }
 }
