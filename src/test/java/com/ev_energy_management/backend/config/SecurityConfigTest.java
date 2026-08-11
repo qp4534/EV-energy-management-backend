@@ -5,6 +5,7 @@ import com.ev_energy_management.backend.security.JwtAuthenticationFilter;
 import com.ev_energy_management.backend.security.JwtTokenProvider;
 import com.ev_energy_management.backend.security.TokenBlacklistService;
 import com.ev_energy_management.backend.service.CarService;
+import com.ev_energy_management.backend.service.S3Service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -41,6 +42,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private TokenBlacklistService tokenBlacklistService;
+
+    @MockitoBean
+    private S3Service s3Service;
 
     @Test
     void domainEndpointWithoutTokenReturns401() throws Exception {

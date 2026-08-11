@@ -115,7 +115,9 @@ public class GlobalExceptionHandler {
         // 500으로 노출되던 걸 막는다 - 사용자에게는 무엇이 중복인지 정도만 알려준다.
         String msg = e.getMostSpecificCause().getMessage();
         String field = msg != null && msg.contains("phone") ? "전화번호"
-                : msg != null && msg.contains("email") ? "이메일" : "입력값";
+                : msg != null && msg.contains("email") ? "이메일"
+                : msg != null && msg.contains("car_number") ? "차량 번호"
+                : msg != null && msg.contains("vin") ? "차대번호(VIN)" : "입력값";
         log.warn("Data integrity violation: {}", msg);
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(409, "DUPLICATE_VALUE", "이미 사용 중인 " + field + "입니다."));

@@ -1,6 +1,6 @@
 package com.ev_energy_management.backend.service;
 
-import com.ev_energy_management.backend.dto.auth.ProfileImageUploadUrlResponse;
+import com.ev_energy_management.backend.dto.ImageUploadUrlResponse;
 import com.ev_energy_management.backend.exception.InvalidRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,9 +17,9 @@ public class S3Service {
 
     private static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(5);
 
-    // 버킷 정책에서 profile-images/*만 공개 읽기를 허용해뒀으므로, 업로드 가능한 형식도
-    // 이 화이트리스트로 제한한다 (임의 파일 확장자로 업로드되는 것을 막기 위함).
-    private static final Map<String, String> ALLOWED_PROFILE_IMAGE_TYPES = Map.of(
+    // 버킷 정책에서 profile-images/*, car-images/*만 공개 읽기를 허용해뒀으므로, 업로드
+    // 가능한 형식도 이 화이트리스트로 제한한다 (임의 파일 확장자로 업로드되는 것을 막기 위함).
+    private static final Map<String, String> ALLOWED_IMAGE_TYPES = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
             "image/webp", "webp"
@@ -39,13 +39,21 @@ public class S3Service {
         this.region = region;
     }
 
-    public ProfileImageUploadUrlResponse createProfileImageUploadUrl(UUID userId, String contentType) {
-        String extension = ALLOWED_PROFILE_IMAGE_TYPES.get(contentType);
+    public ImageUploadUrlResponse createProfileImageUploadUrl(UUID userId, String contentType) {
+        return createUploadUrl("profile-images/" + userId, contentType);
+    }
+
+    public ImageUploadUrlResponse createCarImageUploadUrl(UUID carId, String contentType) {
+        return createUploadUrl("car-images/" + carId, contentType);
+    }
+
+    private ImageUploadUrlResponse createUploadUrl(String keyPrefix, String contentType) {
+        String extension = ALLOWED_IMAGE_TYPES.get(contentType);
         if (extension == null) {
             throw new InvalidRequestException("지원하지 않는 이미지 형식입니다. (jpeg, png, webp만 허용)");
         }
 
-        String objectKey = "profile-images/%s/%s.%s".formatted(userId, UUID.randomUUID(), extension);
+        String objectKey = "%s/%s.%s".formatted(keyPrefix, UUID.randomUUID(), extension);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -59,9 +67,10 @@ public class S3Service {
                 .build();
 
         String uploadUrl = presigner.presignPutObject(presignRequest).url().toString();
-        // profile-images/*는 버킷 정책으로 공개 읽기이므로, presigned GET 없이 이 정적 URL로 바로 접근 가능.
+        // profile-images/*, car-images/*는 버킷 정책으로 공개 읽기이므로, presigned GET 없이
+        // 이 정적 URL로 바로 접근 가능.
         String imageUrl = "https://%s.s3.%s.amazonaws.com/%s".formatted(bucket, region, objectKey);
 
-        return new ProfileImageUploadUrlResponse(uploadUrl, imageUrl);
+        return new ImageUploadUrlResponse(uploadUrl, imageUrl);
     }
 }
