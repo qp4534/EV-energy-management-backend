@@ -4,6 +4,7 @@ import com.ev_energy_management.backend.dto.AiReportDto;
 import com.ev_energy_management.backend.entity.AiReportEntity;
 import com.ev_energy_management.backend.repository.AiReportRepository;
 import com.ev_energy_management.backend.repository.CarRepository;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +60,7 @@ class AiReportServiceTest {
                 """);
         when(aiReportRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(entity));
 
-        AiReportDto result = aiReportService.findAll().get(0);
+        AiReportDto result = aiReportService.findAll(new AuthenticatedUser(UUID.randomUUID(), "관리자")).get(0);
 
         assertEquals("이상", result.reportType());
         assertEquals("WARNING", result.reportData().get("riskLevel"));

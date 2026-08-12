@@ -22,8 +22,8 @@ public class AiReportController {
     }
 
     @GetMapping
-    public List<AiReportDto> getAiReports() {
-        return aiReportService.findAll();
+    public List<AiReportDto> getAiReports(@AuthenticationPrincipal AuthenticatedUser user) {
+        return aiReportService.findAll(user);
     }
 
     @GetMapping("/{reportId}")

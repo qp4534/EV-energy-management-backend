@@ -77,6 +77,10 @@ public class SecurityConfig {
                                 "/api/auth/email/send-code", "/api/auth/email/verify-code",
                                 "/api/auth/find-email", "/api/auth/password/reset/send-code",
                                 "/api/auth/password/reset").permitAll()
+                        // 공지사항 "조회"는 이용자(차주) 앱도 봐야 해서 admin 전용에서 뺀다 - 실제로
+                        // 어떤 공지가 보이는지(target_role)는 NoticeService에서 role별로 걸러준다.
+                        // 작성/수정/삭제는 여전히 관리자 전용(아래 규칙 그대로).
+                        .requestMatchers(HttpMethod.GET, "/api/notices/**").authenticated()
                         .requestMatchers(
                                 "/api/notices/**", "/api/notice-attachments/**",
                                 "/api/users/**",
