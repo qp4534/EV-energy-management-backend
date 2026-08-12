@@ -37,3 +37,7 @@ out/
 .vscode/
 
 .claude/
+# env files (real secrets - never commit)
+.env
+.env.*
+!.env.example

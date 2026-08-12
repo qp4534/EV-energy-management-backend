@@ -67,7 +67,3 @@ GitHub Actions(`.github/workflows/deploy.yml`)가 이미지를 빌드해 Docker 
 - 외부(사용자) 경로: `https://www.mijungev.kro.kr/api/*`
 - 내부(관리자 전용, VPN 필요) 경로: `https://admin.mijungev.kro.kr/api/*`
 - 헬스체크: `/actuator/health/readiness`, `/actuator/health/liveness` (K8s probe), `/actuator/prometheus`(지표)
-
-## 브랜치 규칙
-
-작업은 `dev_nh`(개인 브랜치)에서 커밋 → 빌드 확인 후 `main`에 병합 → CI가 자동 배포.
