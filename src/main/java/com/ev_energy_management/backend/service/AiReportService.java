@@ -17,7 +17,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AiReportService {
@@ -43,8 +45,19 @@ public class AiReportService {
         this.actionLogWriter = actionLogWriter;
     }
 
-    public List<AiReportDto> findAll() {
-        return aiReportRepository.findAllByOrderByCreatedAtDesc().stream()
+    // 이용자(차주)는 본인 차량 보고서만, 관제자/관리자는 관제 목적상 전체를 봐야 해서 그대로 둔다.
+    // carId가 없는 보고서(전체 차량 월간 집계 등)는 특정 차주 개인의 보고서가 아니라 이용자에게는
+    // 제외한다.
+    public List<AiReportDto> findAll(AuthenticatedUser user) {
+        List<AiReportEntity> reports = aiReportRepository.findAllByOrderByCreatedAtDesc();
+        if (!"이용자".equals(user.role())) {
+            return reports.stream().map(this::toDto).toList();
+        }
+        Set<UUID> ownCarIds = carRepository.findByUserId(user.userId()).stream()
+                .map(CarEntity::getCarId)
+                .collect(Collectors.toSet());
+        return reports.stream()
+                .filter(entity -> entity.getCarId() != null && ownCarIds.contains(entity.getCarId()))
                 .map(this::toDto)
                 .toList();
     }
