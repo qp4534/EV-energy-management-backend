@@ -35,9 +35,10 @@ public class IpGeoLocationService {
                 .build();
     }
 
-    // 국가명 없이 "서울", "대구 동구"처럼 도시(+구/군) 단위로만 보여준다 - 관리자 로그 화면에서
-    // "South Korea Dalseong-gun"처럼 영문 국가명이 붙어 나오면 알아보기 힘들다는 피드백 반영.
-    // lang=ko로 한국어 지명을 받고, district(구/군 단위)가 있으면 city 뒤에 붙인다.
+    // "South Korea Daegu"처럼 국가+광역시/도 단위로만 보여준다. ip-api의 "city" 필드는
+    // 실제로는 구/군 단위까지 내려가는데(예: 대구 시내인데 "Dalseong-gun"으로 나옴 - 통신사가
+    // 그 IP 대역을 등록해둔 행정구역일 뿐 실제 접속 위치가 아님, 실측 확인함) 그만큼 부정확도가
+    // 커진다. "regionName"(광역시/도 단위, 예: "Daegu")이 이 프로젝트 용도엔 더 안정적이다.
     @SuppressWarnings("unchecked")
     public String resolve(String ipAddress) {
         if (ipAddress == null || ipAddress.isBlank() || PRIVATE_OR_LOOPBACK.matcher(ipAddress).find()) {
@@ -45,18 +46,18 @@ public class IpGeoLocationService {
         }
         try {
             Map<String, Object> body = restClient.get()
-                    .uri("/json/{ip}?fields=status,city,district&lang=ko", ipAddress)
+                    .uri("/json/{ip}?fields=status,country,regionName", ipAddress)
                     .retrieve()
                     .body(Map.class);
             if (body == null || !"success".equals(body.get("status"))) {
                 return null;
             }
-            String city = (String) body.get("city");
-            String district = (String) body.get("district");
-            if (city == null || city.isBlank()) {
+            String country = (String) body.get("country");
+            String region = (String) body.get("regionName");
+            if (country == null && region == null) {
                 return null;
             }
-            return district != null && !district.isBlank() ? city + " " + district : city;
+            return (country != null ? country : "") + (region != null && !region.isBlank() ? " " + region : "");
         } catch (Exception e) {
             log.warn("IP 위치 조회 실패 (ip={}): {}", ipAddress, e.getMessage());
             return null;
