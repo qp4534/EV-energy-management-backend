@@ -3,6 +3,7 @@ package com.ev_energy_management.backend.service;
 import com.ev_energy_management.backend.dto.AiReportDto;
 import com.ev_energy_management.backend.entity.AiReportEntity;
 import com.ev_energy_management.backend.repository.AiReportRepository;
+import com.ev_energy_management.backend.repository.CarRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +29,20 @@ class AiReportServiceTest {
     @Mock
     private AiReportRepository aiReportRepository;
 
+    @Mock
+    private CarRepository carRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private ActionLogWriter actionLogWriter;
+
     private AiReportService aiReportService;
 
     @BeforeEach
     void setUp() {
-        aiReportService = new AiReportService(aiReportRepository);
+        aiReportService = new AiReportService(aiReportRepository, carRepository, notificationService, actionLogWriter);
     }
 
     @Test

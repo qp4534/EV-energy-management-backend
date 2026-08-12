@@ -15,4 +15,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     // DB 쿼리에서 전화번호까지 정확히 매칭하지 않는다 - AuthService.findEmail에서 숫자만
     // 남긴 뒤 비교한다.
     List<UserEntity> findByNameAndBirthAndRoleAndIsDeletedFalse(String name, LocalDate birth, String role);
+
+    List<UserEntity> findByRoleAndIsDeletedFalse(String role);
 }
