@@ -58,6 +58,8 @@ class AuthServiceTest {
     private AuditLogService auditLogService;
     @Mock
     private EmailVerificationService emailVerificationService;
+    @Mock
+    private IpGeoLocationService ipGeoLocationService;
 
     private AuthService authService;
 
@@ -66,7 +68,7 @@ class AuthServiceTest {
         authService = new AuthService(
                 userRepository, loginLogRepository, termAgreementRepository,
                 passwordEncoder, jwtTokenProvider, tokenBlacklistService, auditLogService,
-                emailVerificationService
+                emailVerificationService, ipGeoLocationService
         );
     }
 

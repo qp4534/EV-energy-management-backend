@@ -35,6 +35,9 @@ public class IpGeoLocationService {
                 .build();
     }
 
+    // 국가명 없이 "서울", "대구 동구"처럼 도시(+구/군) 단위로만 보여준다 - 관리자 로그 화면에서
+    // "South Korea Dalseong-gun"처럼 영문 국가명이 붙어 나오면 알아보기 힘들다는 피드백 반영.
+    // lang=ko로 한국어 지명을 받고, district(구/군 단위)가 있으면 city 뒤에 붙인다.
     @SuppressWarnings("unchecked")
     public String resolve(String ipAddress) {
         if (ipAddress == null || ipAddress.isBlank() || PRIVATE_OR_LOOPBACK.matcher(ipAddress).find()) {
@@ -42,18 +45,18 @@ public class IpGeoLocationService {
         }
         try {
             Map<String, Object> body = restClient.get()
-                    .uri("/json/{ip}?fields=status,country,city", ipAddress)
+                    .uri("/json/{ip}?fields=status,city,district&lang=ko", ipAddress)
                     .retrieve()
                     .body(Map.class);
             if (body == null || !"success".equals(body.get("status"))) {
                 return null;
             }
-            String country = (String) body.get("country");
             String city = (String) body.get("city");
-            if (country == null && city == null) {
+            String district = (String) body.get("district");
+            if (city == null || city.isBlank()) {
                 return null;
             }
-            return (country != null ? country : "") + (city != null && !city.isBlank() ? " " + city : "");
+            return district != null && !district.isBlank() ? city + " " + district : city;
         } catch (Exception e) {
             log.warn("IP 위치 조회 실패 (ip={}): {}", ipAddress, e.getMessage());
             return null;
