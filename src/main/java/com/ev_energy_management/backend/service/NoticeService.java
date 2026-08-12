@@ -73,11 +73,17 @@ public class NoticeService {
         return saved;
     }
 
-    // 관리자/관제자 대상 공지(target_role: ADMIN/CONTROLLER)는 그 화면들이 자체적으로 목록을
-    // 조회해서 보여주므로 별도 알림이 필요 없다. "이용자"를 대상으로 지정한 공지만 차주 앱에
-    // 실제로 노출되는 경로(NOTIFICATIONS)가 없어서, 여기서 전체 차주에게 알림을 만들어준다.
+    // 관리자/관제자만 대상으로 하는 공지(target_role: ADMIN/CONTROLLER)는 그 화면들이 자체적으로
+    // 목록을 조회해서 보여주므로 차주에게는 필요 없다. "USER"(이용자/차주 전용)이거나
+    // targetRole이 null인 "전체" 공지는 차주도 봐야 하는데, 차주 앱엔 이게 노출되는 경로
+    // (NOTIFICATIONS)가 없어서 여기서 전체 차주에게 알림을 만들어준다.
+    // target_role은 frontend-web(NoticeWrite/NoticeEdit)에서 ADMIN/CONTROLLER/USER 영문 값
+    // 또는 "전체"일 때 null로 변환해서 보낸다 - DB 자체엔 CHECK 제약이 없지만 이 표기가 이미
+    // 통용되는 컨벤션이다.
     private void notifyCarOwnersIfTargeted(NoticeDto notice) {
-        if (!"이용자".equals(notice.targetRole())) return;
+        String targetRole = notice.targetRole();
+        boolean staffOnly = "ADMIN".equals(targetRole) || "CONTROLLER".equals(targetRole);
+        if (staffOnly) return;
 
         for (UserEntity owner : userRepository.findByRoleAndIsDeletedFalse("이용자")) {
             notificationService.create(
