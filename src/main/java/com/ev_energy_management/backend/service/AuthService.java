@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -97,10 +98,22 @@ public class AuthService {
         return value == null ? "" : value.replaceAll("\\D", "");
     }
 
+    // 탈퇴 계정은 이메일 유니크 제약에서 제외되므로(schema.sql UQ_USER_EMAIL_ACTIVE) 같은
+    // 이메일로 활성 계정 1개 + 탈퇴 계정 여러 개가 동시에 존재할 수 있다. 활성 계정을 우선
+    // 반환하고, 활성 계정이 없으면(탈퇴 계정만 있으면) 그거라도 반환해서 로그인/비번찾기에서
+    // "탈퇴한 계정입니다" 안내를 그대로 보여줄 수 있게 한다.
+    private Optional<UserEntity> findAccountByEmail(String email) {
+        List<UserEntity> matches = userRepository.findAllByEmail(email);
+        return matches.stream()
+                .filter(candidate -> !Boolean.TRUE.equals(candidate.getIsDeleted()))
+                .findFirst()
+                .or(() -> matches.stream().findFirst());
+    }
+
     // 비밀번호 재설정 1단계: 계정이 실제로 존재하고 탈퇴하지 않았을 때만 인증코드를 보낸다.
     // 코드 발급/저장/발송 자체는 회원가입 때와 같은 EmailVerificationService를 그대로 재사용한다.
     public void requestPasswordReset(String email) {
-        UserEntity user = userRepository.findByEmail(email)
+        UserEntity user = findAccountByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("가입된 계정을 찾을 수 없습니다."));
         if (Boolean.TRUE.equals(user.getIsDeleted())) {
             throw new AccountDeletedException("탈퇴한 계정입니다.");
@@ -119,7 +132,7 @@ public class AuthService {
         if (!PASSWORD_POLICY.matcher(request.newPassword()).matches()) {
             throw new InvalidPasswordException(PASSWORD_POLICY_MESSAGE);
         }
-        UserEntity user = userRepository.findByEmail(request.email())
+        UserEntity user = findAccountByEmail(request.email())
                 .orElseThrow(() -> new EntityNotFoundException("가입된 계정을 찾을 수 없습니다."));
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
@@ -135,7 +148,9 @@ public class AuthService {
     // 이메일 인증코드 발송 전에도 같은 규칙으로 미리 막아서, 사용자가 인증까지 다 끝낸
     // 뒤에야 "이미 가입된 이메일"이라는 걸 알게 되는 일이 없게 한다.
     public void ensureEmailAvailable(String email) {
-        if (userRepository.findByEmail(email).isPresent()) {
+        boolean activeAccountExists = userRepository.findAllByEmail(email).stream()
+                .anyMatch(candidate -> !Boolean.TRUE.equals(candidate.getIsDeleted()));
+        if (activeAccountExists) {
             throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
         }
     }
@@ -188,7 +203,7 @@ public class AuthService {
     // 클라이언트에는 실패로 응답한다"가 실제로 같이 성립하게 한다.
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class})
     public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
-        UserEntity user = userRepository.findByEmail(request.email())
+        UserEntity user = findAccountByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
         if (Boolean.TRUE.equals(user.getIsDeleted())) {

@@ -77,7 +77,7 @@ class AuthServiceTest {
                 "new@user.com", "Raw-password1!", "홍길동", "010-0000-0000",
                 LocalDate.of(1990, 1, 1), "관제자", List.of("age", "service")
         );
-        when(userRepository.findByEmail("new@user.com")).thenReturn(Optional.empty());
+        when(userRepository.findAllByEmail("new@user.com")).thenReturn(List.of());
         when(emailVerificationService.isVerified("new@user.com")).thenReturn(true);
         when(passwordEncoder.encode("Raw-password1!")).thenReturn("hashed-password");
         when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
@@ -101,7 +101,7 @@ class AuthServiceTest {
                 "unverified@user.com", "Raw-password1!", "홍길동", "010-0000-0000",
                 LocalDate.of(1990, 1, 1), "관제자", List.of()
         );
-        when(userRepository.findByEmail("unverified@user.com")).thenReturn(Optional.empty());
+        when(userRepository.findAllByEmail("unverified@user.com")).thenReturn(List.of());
         when(emailVerificationService.isVerified("unverified@user.com")).thenReturn(false);
 
         assertThrows(EmailNotVerifiedException.class, () -> authService.signup(request));
@@ -110,17 +110,25 @@ class AuthServiceTest {
 
     @Test
     void ensureEmailAvailableRejectsAlreadyRegisteredEmail() {
-        when(userRepository.findByEmail("dup@user.com"))
-                .thenReturn(Optional.of(UserEntity.builder().userId(UUID.randomUUID()).build()));
+        when(userRepository.findAllByEmail("dup@user.com"))
+                .thenReturn(List.of(UserEntity.builder().userId(UUID.randomUUID()).build()));
 
         assertThrows(EmailAlreadyExistsException.class, () -> authService.ensureEmailAvailable("dup@user.com"));
     }
 
     @Test
     void ensureEmailAvailableAllowsUnregisteredEmail() {
-        when(userRepository.findByEmail("fresh@user.com")).thenReturn(Optional.empty());
+        when(userRepository.findAllByEmail("fresh@user.com")).thenReturn(List.of());
 
         assertDoesNotThrow(() -> authService.ensureEmailAvailable("fresh@user.com"));
+    }
+
+    @Test
+    void ensureEmailAvailableAllowsEmailFromDeletedAccount() {
+        when(userRepository.findAllByEmail("re-signup@user.com"))
+                .thenReturn(List.of(UserEntity.builder().userId(UUID.randomUUID()).isDeleted(true).build()));
+
+        assertDoesNotThrow(() -> authService.ensureEmailAvailable("re-signup@user.com"));
     }
 
     @Test
@@ -129,8 +137,8 @@ class AuthServiceTest {
                 "dup@user.com", "raw-password", "홍길동", "010-0000-0000",
                 LocalDate.of(1990, 1, 1), "관제자", List.of()
         );
-        when(userRepository.findByEmail("dup@user.com"))
-                .thenReturn(Optional.of(UserEntity.builder().userId(UUID.randomUUID()).build()));
+        when(userRepository.findAllByEmail("dup@user.com"))
+                .thenReturn(List.of(UserEntity.builder().userId(UUID.randomUUID()).build()));
 
         assertThrows(EmailAlreadyExistsException.class, () -> authService.signup(request));
         verify(userRepository, never()).save(any());
@@ -142,7 +150,7 @@ class AuthServiceTest {
                 "weak@user.com", "weakpassword", "홍길동", "010-0000-0000",
                 LocalDate.of(1990, 1, 1), "관제자", List.of()
         );
-        when(userRepository.findByEmail("weak@user.com")).thenReturn(Optional.empty());
+        when(userRepository.findAllByEmail("weak@user.com")).thenReturn(List.of());
 
         assertThrows(InvalidPasswordException.class, () -> authService.signup(request));
         verify(userRepository, never()).save(any());
@@ -155,7 +163,7 @@ class AuthServiceTest {
                 .userId(userId).email("ok@user.com").passwordHash("hashed")
                 .role("관제자").loginFailed(2).isLocked(false).name("홍길동")
                 .build();
-        when(userRepository.findByEmail("ok@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("ok@user.com")).thenReturn(List.of(user));
         when(passwordEncoder.matches("correct", "hashed")).thenReturn(true);
         when(jwtTokenProvider.generateToken(userId, "관제자")).thenReturn("jwt-token");
 
@@ -174,7 +182,7 @@ class AuthServiceTest {
                 .userId(userId).email("bad@user.com").passwordHash("hashed")
                 .role("관제자").loginFailed(1).isLocked(false)
                 .build();
-        when(userRepository.findByEmail("bad@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("bad@user.com")).thenReturn(List.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         assertThrows(InvalidCredentialsException.class,
@@ -192,7 +200,7 @@ class AuthServiceTest {
                 .userId(userId).email("almost-locked@user.com").passwordHash("hashed")
                 .role("관제자").loginFailed(3).isLocked(false)
                 .build();
-        when(userRepository.findByEmail("almost-locked@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("almost-locked@user.com")).thenReturn(List.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         InvalidCredentialsException thrown = assertThrows(InvalidCredentialsException.class,
@@ -210,7 +218,7 @@ class AuthServiceTest {
                 .userId(userId).email("locking@user.com").passwordHash("hashed")
                 .role("관제자").loginFailed(4).isLocked(false)
                 .build();
-        when(userRepository.findByEmail("locking@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("locking@user.com")).thenReturn(List.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         assertThrows(AccountLockedException.class,
@@ -241,7 +249,7 @@ class AuthServiceTest {
                 .userId(userId).email("locked@user.com").passwordHash("hashed")
                 .role("관제자").loginFailed(5).isLocked(true)
                 .build();
-        when(userRepository.findByEmail("locked@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("locked@user.com")).thenReturn(List.of(user));
 
         assertThrows(AccountLockedException.class,
                 () -> authService.login(new LoginRequest("locked@user.com", "correct"), "1.1.1.1", "test-agent"));
@@ -257,13 +265,35 @@ class AuthServiceTest {
                 .userId(userId).email("deleted@user.com").passwordHash("hashed")
                 .role("관제자").isDeleted(true)
                 .build();
-        when(userRepository.findByEmail("deleted@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("deleted@user.com")).thenReturn(List.of(user));
 
         assertThrows(AccountDeletedException.class,
                 () -> authService.login(new LoginRequest("deleted@user.com", "correct"), "1.1.1.1", "test-agent"));
 
         verify(passwordEncoder, never()).matches(anyString(), anyString());
         verify(loginLogRepository).save(argThat(log -> "ACCOUNT_DELETED".equals(log.getFailReason())));
+    }
+
+    @Test
+    void loginPicksActiveAccountWhenDeletedAccountSharesEmail() {
+        UUID activeUserId = UUID.randomUUID();
+        UserEntity deletedUser = UserEntity.builder()
+                .userId(UUID.randomUUID()).email("dual@user.com").passwordHash("old-hash")
+                .role("이용자").isDeleted(true)
+                .build();
+        UserEntity activeUser = UserEntity.builder()
+                .userId(activeUserId).email("dual@user.com").passwordHash("hashed")
+                .role("관제자").loginFailed(0).isLocked(false)
+                .build();
+        when(userRepository.findAllByEmail("dual@user.com")).thenReturn(List.of(deletedUser, activeUser));
+        when(passwordEncoder.matches("correct", "hashed")).thenReturn(true);
+        when(jwtTokenProvider.generateToken(activeUserId, "관제자")).thenReturn("jwt-token");
+
+        LoginResponse response =
+                authService.login(new LoginRequest("dual@user.com", "correct"), "1.1.1.1", "test-agent");
+
+        assertEquals("jwt-token", response.token());
+        assertEquals(activeUserId, response.userId());
     }
 
     @Test
@@ -366,7 +396,7 @@ class AuthServiceTest {
     @Test
     void requestPasswordResetSendsCodeForExistingAccount() {
         UserEntity user = UserEntity.builder().email("reset@user.com").isDeleted(false).build();
-        when(userRepository.findByEmail("reset@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("reset@user.com")).thenReturn(List.of(user));
 
         authService.requestPasswordReset("reset@user.com");
 
@@ -375,7 +405,7 @@ class AuthServiceTest {
 
     @Test
     void requestPasswordResetRejectsUnknownEmail() {
-        when(userRepository.findByEmail("nobody@user.com")).thenReturn(Optional.empty());
+        when(userRepository.findAllByEmail("nobody@user.com")).thenReturn(List.of());
 
         assertThrows(EntityNotFoundException.class, () -> authService.requestPasswordReset("nobody@user.com"));
         verify(emailVerificationService, never()).sendCode(anyString());
@@ -384,7 +414,7 @@ class AuthServiceTest {
     @Test
     void requestPasswordResetRejectsDeletedAccount() {
         UserEntity user = UserEntity.builder().email("gone@user.com").isDeleted(true).build();
-        when(userRepository.findByEmail("gone@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("gone@user.com")).thenReturn(List.of(user));
 
         assertThrows(AccountDeletedException.class, () -> authService.requestPasswordReset("gone@user.com"));
         verify(emailVerificationService, never()).sendCode(anyString());
@@ -398,7 +428,7 @@ class AuthServiceTest {
                 .loginFailed(3).isLocked(true)
                 .build();
         when(emailVerificationService.isVerified("reset2@user.com")).thenReturn(true);
-        when(userRepository.findByEmail("reset2@user.com")).thenReturn(Optional.of(user));
+        when(userRepository.findAllByEmail("reset2@user.com")).thenReturn(List.of(user));
         when(passwordEncoder.encode("New-password1!")).thenReturn("new-hash");
 
         authService.resetPassword(new PasswordResetRequest("reset2@user.com", "New-password1!"));
@@ -417,7 +447,7 @@ class AuthServiceTest {
 
         assertThrows(EmailNotVerifiedException.class, () -> authService.resetPassword(
                 new PasswordResetRequest("noverify@user.com", "New-password1!")));
-        verify(userRepository, never()).findByEmail(anyString());
+        verify(userRepository, never()).findAllByEmail(anyString());
     }
 
     @Test
@@ -426,6 +456,6 @@ class AuthServiceTest {
 
         assertThrows(InvalidPasswordException.class, () -> authService.resetPassword(
                 new PasswordResetRequest("weak2@user.com", "weakpassword")));
-        verify(userRepository, never()).findByEmail(anyString());
+        verify(userRepository, never()).findAllByEmail(anyString());
     }
 }
