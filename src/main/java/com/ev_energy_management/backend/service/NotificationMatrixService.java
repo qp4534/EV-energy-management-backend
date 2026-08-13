@@ -14,6 +14,9 @@ import java.util.UUID;
 @Service
 public class NotificationMatrixService {
 
+    // 긴급 등급은 절대 꺼지면 안 되는 항목 -> 프론트에서 아무리 요청을 보내도 서버에서 무조건 켜짐으로 저장
+    private static final String EMERGENCY_LEVEL = "긴급";
+
     private final NotificationMatrixRepository notificationMatrixRepository;
     private final ActionLogWriter actionLogWriter;
 
@@ -44,8 +47,13 @@ public class NotificationMatrixService {
     public NotificationMatrixDto update(AuthenticatedUser actor, UUID matrixId, NotificationMatrixDto request) {
         NotificationMatrixEntity entity = notificationMatrixRepository.findById(matrixId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification matrix not found: " + matrixId));
+
+        // 긴급 등급이면 요청이 뭐였든 무조건 켜짐으로 저장
+        boolean isEmergencyRow = EMERGENCY_LEVEL.equals(entity.getRiskLevel());
+        boolean finalIsEnabled = isEmergencyRow ? true : request.isEnabled();
+
         entity.setRiskLevel(request.riskLevel());
-        entity.setIsEnabled(request.isEnabled());
+        entity.setIsEnabled(finalIsEnabled);
         entity.setChannelId(request.channelId());
         NotificationMatrixDto saved = toDto(notificationMatrixRepository.save(entity));
 
@@ -57,7 +65,8 @@ public class NotificationMatrixService {
                 Map.of(
                         "riskLevel", request.riskLevel() == null ? "" : request.riskLevel(),
                         "channelId", request.channelId() == null ? "" : request.channelId(),
-                        "isEnabled", String.valueOf(request.isEnabled())
+                        "isEnabled", String.valueOf(finalIsEnabled),
+                        "emergencyLocked", String.valueOf(isEmergencyRow)
                 )
         );
         return saved;

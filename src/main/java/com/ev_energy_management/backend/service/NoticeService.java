@@ -27,17 +27,20 @@ public class NoticeService {
     private final ActionLogWriter actionLogWriter;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final NoticeAttachmentService noticeAttachmentService;
 
     public NoticeService(
             NoticeRepository noticeRepository,
             ActionLogWriter actionLogWriter,
             UserRepository userRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            NoticeAttachmentService noticeAttachmentService
     ) {
         this.noticeRepository = noticeRepository;
         this.actionLogWriter = actionLogWriter;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.noticeAttachmentService = noticeAttachmentService;
     }
 
     // 이용자(차주)는 본인이 볼 수 있는 공지(전체 또는 target_role=USER)만, 관제자/관리자는
@@ -141,6 +144,7 @@ public class NoticeService {
     }
 
     public void delete(AuthenticatedUser actor, UUID noticeId) {
+        noticeAttachmentService.deleteByNoticeId(noticeId); // 공지 지우기 전에 딸린 첨부파일부터 정리
         noticeRepository.deleteById(noticeId);
         actionLogWriter.write(
                 actor == null ? null : actor.userId(),

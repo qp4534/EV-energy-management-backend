@@ -1,6 +1,7 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.NoticeAttachmentDto;
+import com.ev_energy_management.backend.dto.NoticeAttachmentUploadUrlResponse;
 import com.ev_energy_management.backend.service.NoticeAttachmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,15 @@ public class NoticeAttachmentController {
 
     public NoticeAttachmentController(NoticeAttachmentService noticeAttachmentService) {
         this.noticeAttachmentService = noticeAttachmentService;
+    }
+
+    // 파일 선택 시 제일 먼저 호출 - S3에 직접 업로드할 임시 링크 발급
+    @GetMapping("/upload-url")
+    public NoticeAttachmentUploadUrlResponse getUploadUrl(
+            @RequestParam String fileName,
+            @RequestParam String contentType
+    ) {
+        return noticeAttachmentService.createUploadUrl(fileName, contentType);
     }
 
     @GetMapping
