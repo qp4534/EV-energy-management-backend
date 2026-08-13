@@ -17,10 +17,13 @@ public class NoticeService {
 
     private final NoticeRepository noticeRepository;
     private final ActionLogWriter actionLogWriter;
+    private final NoticeAttachmentService noticeAttachmentService;
 
-    public NoticeService(NoticeRepository noticeRepository, ActionLogWriter actionLogWriter) {
+    public NoticeService(NoticeRepository noticeRepository, ActionLogWriter actionLogWriter,
+                         NoticeAttachmentService noticeAttachmentService) {
         this.noticeRepository = noticeRepository;
         this.actionLogWriter = actionLogWriter;
+        this.noticeAttachmentService = noticeAttachmentService;
     }
 
     public List<NoticeDto> findAll() {
@@ -80,6 +83,7 @@ public class NoticeService {
     }
 
     public void delete(AuthenticatedUser actor, UUID noticeId) {
+        noticeAttachmentService.deleteByNoticeId(noticeId); // 공지 지우기 전에 딸린 첨부파일부터 정리
         noticeRepository.deleteById(noticeId);
         actionLogWriter.write(
                 actor == null ? null : actor.userId(),
