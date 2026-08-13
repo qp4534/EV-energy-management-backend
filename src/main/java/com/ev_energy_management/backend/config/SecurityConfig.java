@@ -81,6 +81,12 @@ public class SecurityConfig {
                         // 어떤 공지가 보이는지(target_role)는 NoticeService에서 role별로 걸러준다.
                         // 작성/수정/삭제는 여전히 관리자 전용(아래 규칙 그대로).
                         .requestMatchers(HttpMethod.GET, "/api/notices/**").authenticated()
+                        // Vehicle-scoped Twin routes perform ownership/role checks in
+                        // TwinFrameController through CarAccessService.
+                        .requestMatchers("/api/twin-frames/cars/**", "/api/twin-frames/car/**").authenticated()
+                        // Generic Twin-frame listing and CRUD are operational endpoints;
+                        // owners must not be able to enumerate or mutate other vehicles.
+                        .requestMatchers("/api/twin-frames/**").hasAnyRole("ADMIN", "CONTROLLER")
                         .requestMatchers(
                                 "/api/notices/**", "/api/notice-attachments/**",
                                 "/api/users/**",

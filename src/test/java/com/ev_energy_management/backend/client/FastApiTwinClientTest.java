@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -33,7 +34,8 @@ class FastApiTwinClientTest {
                     Map.of(
                             "fastapi.base-url", "http://fastapi",
                             "fastapi.connect-timeout-ms", "1000",
-                            "fastapi.read-timeout-ms", "1500"
+                            "fastapi.read-timeout-ms", "1500",
+                            "fastapi.internal-token", "test-internal-token"
                     )
             ));
             context.registerBean(FastApiTwinClient.class);
@@ -48,7 +50,7 @@ class FastApiTwinClientTest {
     void requestsLatestMeasurementForTheExactVehicle() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://fastapi");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        FastApiTwinClient client = new FastApiTwinClient(builder.build());
+        FastApiTwinClient client = new FastApiTwinClient(builder, "test-internal-token");
         UUID carId = UUID.fromString("11111111-1111-4111-8111-111111111111");
 
         server.expect(once(), requestTo(
@@ -56,6 +58,7 @@ class FastApiTwinClientTest {
                                 + "/latest/measurement?stale_after_seconds=10"
                 ))
                 .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Twin-Service-Token", "test-internal-token"))
                 .andRespond(withSuccess("""
                         {
                           "vehicle_id":"11111111-1111-4111-8111-111111111111",
