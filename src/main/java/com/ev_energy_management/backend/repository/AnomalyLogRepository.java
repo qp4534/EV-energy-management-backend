@@ -30,15 +30,23 @@ public interface AnomalyLogRepository extends JpaRepository<AnomalyLogEntity, UU
             """, nativeQuery = true)
     List<VehicleRiskProjection> findLatestRiskByCar();
 
+    // generate_series로 "오늘 포함 최근 5일" 날짜 뼈대를 먼저 만들고 LEFT JOIN해서, 그날
+    // 이상징후가 하나도 없어도(al.car_id가 전부 NULL) COUNT(DISTINCT ...)가 0으로 나오게
+    // 한다 - 예전엔 GROUP BY만 써서 이상징후가 있었던 날짜만 나왔고, 그래서 "최근 5일"이
+    // 아니라 "이상징후가 있었던 최근 5개 날짜"가 되는 문제가 있었다.
     @Query(value = """
-            SELECT TO_CHAR(DATE_TRUNC('day', detected_at), 'YYYY-MM-DD') AS "date",
-                   COUNT(DISTINCT car_id) AS "count"
-            FROM public."ANOMALY_LOGS"
-            WHERE risk_level IN ('주의', '경고', '긴급')
-              AND detected_at IS NOT NULL
-            GROUP BY DATE_TRUNC('day', detected_at)
-            ORDER BY DATE_TRUNC('day', detected_at) DESC
-            LIMIT 5
+            SELECT TO_CHAR(day, 'YYYY-MM-DD') AS "date",
+                   COUNT(DISTINCT al.car_id) AS "count"
+            FROM generate_series(
+                     DATE_TRUNC('day', now()) - INTERVAL '4 days',
+                     DATE_TRUNC('day', now()),
+                     INTERVAL '1 day'
+                 ) AS day
+            LEFT JOIN public."ANOMALY_LOGS" al
+                   ON DATE_TRUNC('day', al.detected_at) = day
+                  AND al.risk_level IN ('주의', '경고', '긴급')
+            GROUP BY day
+            ORDER BY day ASC
             """, nativeQuery = true)
     List<DailyRiskCountProjection> findRecentDailyRiskCounts();
 
