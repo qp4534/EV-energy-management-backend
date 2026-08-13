@@ -417,3 +417,18 @@ ALTER TABLE "USER" ADD COLUMN "deleted_at" TIMESTAMPTZ NULL;
 -- 이건 그 전 단계로 사용자가 켜고 끈 상태만 저장한다. ddl-auto=none이라 실제 RDS에는
 -- 수동으로 한 번 실행해야 함.
 ALTER TABLE "USER" ADD COLUMN "push_enabled" BOOLEAN DEFAULT TRUE NOT NULL;
+
+-- 실제 푸시(FCM/APNs) 발송용 Expo push token 저장. 한 유저가 여러 기기를 쓸 수 있어 1:N이고,
+-- 토큰 자체에 유니크 제약을 둬서 같은 기기로 다른 계정에 로그인하면 그 계정으로 재등록되게 한다
+-- (DeviceTokenService.register 참고). ddl-auto=none이라 실제 RDS에는 수동으로 한 번 실행해야 함.
+CREATE TABLE "DEVICE_TOKENS" (
+	"device_token_id"	UUID	DEFAULT gen_random_uuid()	NOT NULL,
+	"user_id"	UUID		NOT NULL,
+	"expo_push_token"	VARCHAR(255)		NOT NULL,
+	"platform"	VARCHAR(20)		NULL,
+	"created_at"	TIMESTAMPTZ	DEFAULT CURRENT_TIMESTAMP	NOT NULL,
+	"updated_at"	TIMESTAMPTZ		NULL
+);
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "PK_DEVICE_TOKENS" PRIMARY KEY ("device_token_id");
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "UQ_DEVICE_TOKENS_TOKEN" UNIQUE ("expo_push_token");
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "FK_USER_TO_DEVICE_TOKENS_1" FOREIGN KEY ("user_id") REFERENCES "USER" ("user_id");
