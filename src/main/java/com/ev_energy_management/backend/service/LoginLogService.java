@@ -31,19 +31,20 @@ public class LoginLogService {
         // 아무데나 섞여 보였다 - 최신순(createdAt DESC)으로 고정.
         List<LoginLogEntity> entities = loginLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        // 관리자 로그 화면에 이용자 UUID 대신 이름을 보여주기 위해 한 번에 조회(N+1 방지)
+        // 관리자 로그 화면에 이용자 UUID 대신 이름/role(=앱·관제·관리 구분용)을 보여주기 위해
+        // 한 번에 조회(N+1 방지)
         List<UUID> userIds = entities.stream().map(LoginLogEntity::getUserId).distinct().toList();
-        Map<UUID, String> userNamesById = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(UserEntity::getUserId, UserEntity::getName));
+        Map<UUID, UserEntity> usersById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(UserEntity::getUserId, u -> u));
 
-        return entities.stream().map(entity -> toDto(entity, userNamesById)).toList();
+        return entities.stream().map(entity -> toDto(entity, usersById)).toList();
     }
 
     public LoginLogDto findById(UUID logId) {
         LoginLogEntity entity = loginLogRepository.findById(logId)
                 .orElseThrow(() -> new EntityNotFoundException("Login log not found: " + logId));
-        String userName = userRepository.findById(entity.getUserId()).map(UserEntity::getName).orElse(null);
-        return toDto(entity, Map.of(entity.getUserId(), userName == null ? "" : userName));
+        UserEntity user = userRepository.findById(entity.getUserId()).orElse(null);
+        return toDto(entity, user == null ? Map.of() : Map.of(entity.getUserId(), user));
     }
 
     public LoginLogDto create(LoginLogDto request) {
@@ -74,7 +75,8 @@ public class LoginLogService {
         loginLogRepository.deleteById(logId);
     }
 
-    private LoginLogDto toDto(LoginLogEntity entity, Map<UUID, String> userNamesById) {
+    private LoginLogDto toDto(LoginLogEntity entity, Map<UUID, UserEntity> usersById) {
+        UserEntity user = usersById.get(entity.getUserId());
         return new LoginLogDto(
                 entity.getLogId(),
                 MaskingUtils.maskIp(entity.getIpAddress()),
@@ -83,7 +85,8 @@ public class LoginLogService {
                 entity.getStatus(),
                 entity.getCreatedAt(),
                 entity.getUserId(),
-                MaskingUtils.maskName(userNamesById.get(entity.getUserId())),
+                MaskingUtils.maskName(user == null ? null : user.getName()),
+                user == null ? null : user.getRole(),
                 entity.getFailReason()
         );
     }

@@ -59,6 +59,7 @@ public class AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditLogService auditLogService;
     private final EmailVerificationService emailVerificationService;
+    private final IpGeoLocationService ipGeoLocationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -68,7 +69,8 @@ public class AuthService {
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService,
             AuditLogService auditLogService,
-            EmailVerificationService emailVerificationService
+            EmailVerificationService emailVerificationService,
+            IpGeoLocationService ipGeoLocationService
     ) {
         this.userRepository = userRepository;
         this.loginLogRepository = loginLogRepository;
@@ -78,6 +80,7 @@ public class AuthService {
         this.tokenBlacklistService = tokenBlacklistService;
         this.auditLogService = auditLogService;
         this.emailVerificationService = emailVerificationService;
+        this.ipGeoLocationService = ipGeoLocationService;
     }
 
     // 아이디(이메일) 찾기: 이름+생년월일+역할로 후보를 좁힌 뒤, 전화번호는 숫자만 남겨서
@@ -342,6 +345,7 @@ public class AuthService {
         LoginLogEntity log = LoginLogEntity.builder()
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)
+                .location(ipGeoLocationService.resolve(ipAddress))
                 .status(status)
                 .userId(userId)
                 .failReason(failReason)
