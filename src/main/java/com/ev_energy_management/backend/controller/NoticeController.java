@@ -22,13 +22,13 @@ public class NoticeController {
     }
 
     @GetMapping
-    public List<NoticeDto> getNotices() {
-        return noticeService.findAll();
+    public List<NoticeDto> getNotices(@AuthenticationPrincipal AuthenticatedUser user) {
+        return noticeService.findAll(user);
     }
 
     @GetMapping("/{noticeId}")
-    public NoticeDto getNotice(@PathVariable UUID noticeId) {
-        return noticeService.findById(noticeId);
+    public NoticeDto getNotice(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID noticeId) {
+        return noticeService.findById(user, noticeId);
     }
 
     @PostMapping

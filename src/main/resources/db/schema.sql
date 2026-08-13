@@ -336,7 +336,7 @@ CREATE TABLE "NOTICE" (
 COMMENT ON COLUMN "NOTICE"."is_pinned" IS 'TRUE, FALSE';
 COMMENT ON COLUMN "NOTICE"."is_read" IS 'TRUE, FALSE';
 COMMENT ON COLUMN "NOTICE"."is_important" IS 'TRUE, FALSE';
-COMMENT ON COLUMN "NOTICE"."target_role" IS 'ADMIN, CONTROLLER';
+COMMENT ON COLUMN "NOTICE"."target_role" IS 'ADMIN, CONTROLLER, USER (null = 전체)';
 
 CREATE TABLE "CAR" (
 	"car_id"	UUID	DEFAULT gen_random_uuid()	NOT NULL,
@@ -405,10 +405,12 @@ ALTER TABLE "BATTERY_PASSPORT" ADD CONSTRAINT "UQ_BATTERY_PASSPORT_CAR" UNIQUE (
 
 -- ddl-auto=none이라 이 파일은 RDS에 수동으로 적용됨. 회원가입 이메일 중복 방지용 제약이니
 -- 실제 DB에도 이 ALTER문을 한 번 수동 실행해야 함(AuthService.signup의 findByEmail 체크가 1차 방어선).
+-- (이후 탈퇴 계정 재가입을 막던 문제 때문에 파일 하단에서 UQ_USER_EMAIL_ACTIVE 파샬 인덱스로 대체됨)
 ALTER TABLE "USER" ADD CONSTRAINT "UQ_USER_EMAIL" UNIQUE ("email");
 
--- 회원 탈퇴(소프트 삭제)용 컬럼. 실제 row는 지우지 않고 플래그만 세운다(로그인/신규가입
--- 이메일 중복체크에서는 여전히 "사용 중"으로 취급 - AuthService 참고). 이것도 ddl-auto=none이라
+-- 회원 탈퇴(소프트 삭제)용 컬럼. 실제 row는 지우지 않고 플래그만 세운다(탈퇴 계정은
+-- UQ_USER_EMAIL_ACTIVE/UQ_USER_PHONE_ROLE_ACTIVE 파샬 인덱스 덕분에 이메일/전화번호 중복
+-- 체크 대상에서 제외됨 - AuthService.findAccountByEmail 참고). 이것도 ddl-auto=none이라
 -- 실제 RDS에는 수동으로 한 번 실행해야 함.
 ALTER TABLE "USER" ADD COLUMN "is_deleted" BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE "USER" ADD COLUMN "deleted_at" TIMESTAMPTZ NULL;
@@ -417,3 +419,39 @@ ALTER TABLE "USER" ADD COLUMN "deleted_at" TIMESTAMPTZ NULL;
 -- 이건 그 전 단계로 사용자가 켜고 끈 상태만 저장한다. ddl-auto=none이라 실제 RDS에는
 -- 수동으로 한 번 실행해야 함.
 ALTER TABLE "USER" ADD COLUMN "push_enabled" BOOLEAN DEFAULT TRUE NOT NULL;
+
+-- 실제 푸시(FCM/APNs) 발송용 Expo push token 저장. 한 유저가 여러 기기를 쓸 수 있어 1:N이고,
+-- 토큰 자체에 유니크 제약을 둬서 같은 기기로 다른 계정에 로그인하면 그 계정으로 재등록되게 한다
+-- (DeviceTokenService.register 참고). ddl-auto=none이라 실제 RDS에는 수동으로 한 번 실행해야 함.
+CREATE TABLE "DEVICE_TOKENS" (
+	"device_token_id"	UUID	DEFAULT gen_random_uuid()	NOT NULL,
+	"user_id"	UUID		NOT NULL,
+	"expo_push_token"	VARCHAR(255)		NOT NULL,
+	"platform"	VARCHAR(20)		NULL,
+	"created_at"	TIMESTAMPTZ	DEFAULT CURRENT_TIMESTAMP	NOT NULL,
+	"updated_at"	TIMESTAMPTZ		NULL
+);
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "PK_DEVICE_TOKENS" PRIMARY KEY ("device_token_id");
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "UQ_DEVICE_TOKENS_TOKEN" UNIQUE ("expo_push_token");
+ALTER TABLE "DEVICE_TOKENS" ADD CONSTRAINT "FK_USER_TO_DEVICE_TOKENS_1" FOREIGN KEY ("user_id") REFERENCES "USER" ("user_id");
+
+-- 탈퇴(is_deleted=true) 계정도 이메일 유니크 제약에 걸려서, 같은 이메일로 탈퇴 후 재가입이
+-- 막혀 있었다(AuthService.ensureEmailAvailable/signup 참고). 활성 계정 안에서만 유니크를
+-- 강제하도록 파샬 유니크 인덱스로 교체한다. 전화번호도 같은 이유로 문제였는데, 원래
+-- USER_phone_key라는 이름으로 "전역" UNIQUE(phone) 제약이 RDS에만(schema.sql에는 없이)
+-- 이미 걸려 있어서, 같은 사람이 이용자 계정과 관제자/관리자 계정을 같은 번호로 동시에 가질
+-- 수 없었다 - role별로 스코프를 좁혀서 해결한다. ddl-auto=none이라 이 블록은 실제 RDS에도
+-- 수동으로 실행해야 하며, 기존 제약을 먼저 지워야 한다(IF EXISTS로 RDS에만 있던
+-- USER_phone_key도 함께 처리).
+ALTER TABLE "USER" DROP CONSTRAINT IF EXISTS "UQ_USER_EMAIL";
+ALTER TABLE "USER" DROP CONSTRAINT IF EXISTS "USER_phone_key";
+CREATE UNIQUE INDEX "UQ_USER_EMAIL_ACTIVE" ON "USER" ("email") WHERE "is_deleted" = false;
+CREATE UNIQUE INDEX "UQ_USER_PHONE_ROLE_ACTIVE" ON "USER" ("phone", "role") WHERE "is_deleted" = false;
+
+-- 위 UQ_USER_EMAIL_ACTIVE만으로는 부족했다 - RDS에는 이것과 별개로 대소문자 구분 없이 이메일
+-- 중복을 막는 UQ_USER_EMAIL_CI라는 인덱스가 이미 있었는데(schema.sql에는 없던 live-only
+-- 인덱스, USER_phone_key와 같은 패턴), 이 인덱스에는 is_deleted 조건이 전혀 없어서 탈퇴
+-- 계정의 이메일이든 대소문자만 다른 이메일이든 상관없이 재가입을 계속 막고 있었다. 대소문자
+-- 구분 없는 유니크 자체는 유지하되, 활성 계정으로만 스코프를 좁힌다.
+DROP INDEX IF EXISTS "UQ_USER_EMAIL_CI";
+CREATE UNIQUE INDEX "UQ_USER_EMAIL_CI_ACTIVE" ON "USER" (lower("email")) WHERE "is_deleted" = false;

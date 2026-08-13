@@ -1,9 +1,11 @@
 package com.ev_energy_management.backend.controller;
 
 import com.ev_energy_management.backend.dto.AiReportDto;
+import com.ev_energy_management.backend.security.AuthenticatedUser;
 import com.ev_energy_management.backend.service.AiReportService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,8 +22,8 @@ public class AiReportController {
     }
 
     @GetMapping
-    public List<AiReportDto> getAiReports() {
-        return aiReportService.findAll();
+    public List<AiReportDto> getAiReports(@AuthenticationPrincipal AuthenticatedUser user) {
+        return aiReportService.findAll(user);
     }
 
     @GetMapping("/{reportId}")
@@ -42,6 +44,21 @@ public class AiReportController {
     @PatchMapping("/{reportId}/read")
     public AiReportDto markAiReportAsRead(@PathVariable UUID reportId) {
         return aiReportService.markAsRead(reportId);
+    }
+
+    @PostMapping("/{reportId}/actions/notify-customer")
+    public ResponseEntity<Void> notifyCustomer(@PathVariable UUID reportId) {
+        aiReportService.notifyCustomer(reportId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{reportId}/actions/dispatch-emergency")
+    public ResponseEntity<Void> dispatchEmergency(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable UUID reportId
+    ) {
+        aiReportService.dispatchEmergency(user, reportId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{reportId}")
