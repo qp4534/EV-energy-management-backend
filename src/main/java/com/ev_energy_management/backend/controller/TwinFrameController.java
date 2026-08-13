@@ -4,12 +4,7 @@ import com.ev_energy_management.backend.dto.BmsTwinSampleRequest;
 import com.ev_energy_management.backend.dto.FastApiTwinFrameResponse;
 import com.ev_energy_management.backend.dto.FastApiTwinMeasurementResponse;
 import com.ev_energy_management.backend.dto.TwinFrameDto;
-import com.ev_energy_management.backend.dto.TwinAccessTokenResponse;
-import com.ev_energy_management.backend.security.AuthenticatedUser;
-import com.ev_energy_management.backend.service.CarAccessService;
-import com.ev_energy_management.backend.service.TwinAccessTokenService;
 import com.ev_energy_management.backend.service.TwinFrameService;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
@@ -24,17 +19,9 @@ import java.util.UUID;
 public class TwinFrameController {
 
     private final TwinFrameService twinFrameService;
-    private final CarAccessService carAccessService;
-    private final TwinAccessTokenService twinAccessTokenService;
 
-    public TwinFrameController(
-            TwinFrameService twinFrameService,
-            CarAccessService carAccessService,
-            TwinAccessTokenService twinAccessTokenService
-    ) {
+    public TwinFrameController(TwinFrameService twinFrameService) {
         this.twinFrameService = twinFrameService;
-        this.carAccessService = carAccessService;
-        this.twinAccessTokenService = twinAccessTokenService;
     }
 
     @GetMapping
@@ -48,11 +35,7 @@ public class TwinFrameController {
     }
 
     @GetMapping("/car/{carId}")
-    public List<TwinFrameDto> getTwinFramesByCar(
-            @PathVariable UUID carId,
-            @AuthenticationPrincipal AuthenticatedUser user
-    ) {
-        carAccessService.requireChatAccess(user, carId);
+    public List<TwinFrameDto> getTwinFramesByCar(@PathVariable UUID carId) {
         return twinFrameService.findByCarId(carId);
     }
 
@@ -64,10 +47,8 @@ public class TwinFrameController {
     @PostMapping("/cars/{carId}/bms-samples")
     public ResponseEntity<FastApiTwinFrameResponse> ingestBmsSample(
             @PathVariable UUID carId,
-            @AuthenticationPrincipal AuthenticatedUser user,
             @RequestBody BmsTwinSampleRequest request
     ) {
-        carAccessService.requireChatAccess(user, carId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(twinFrameService.evaluateBmsSample(carId, request));
     }
@@ -75,20 +56,9 @@ public class TwinFrameController {
     @GetMapping("/cars/{carId}/latest-measurement")
     public FastApiTwinMeasurementResponse getLatestMeasurement(
             @PathVariable UUID carId,
-            @AuthenticationPrincipal AuthenticatedUser user,
             @RequestParam(defaultValue = "10") int staleAfterSeconds
     ) {
-        carAccessService.requireChatAccess(user, carId);
         return twinFrameService.latestMeasurement(carId, staleAfterSeconds);
-    }
-
-    @PostMapping("/cars/{carId}/access-token")
-    public TwinAccessTokenResponse issueTwinAccessToken(
-            @PathVariable UUID carId,
-            @AuthenticationPrincipal AuthenticatedUser user
-    ) {
-        carAccessService.requireChatAccess(user, carId);
-        return twinAccessTokenService.issue(user, carId);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

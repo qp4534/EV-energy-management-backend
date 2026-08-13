@@ -18,27 +18,19 @@ import java.util.UUID;
 @Component
 public class FastApiTwinClient {
 
-    private static final String INTERNAL_TOKEN_HEADER = "X-Twin-Service-Token";
-
     private final RestClient restClient;
 
     @Autowired
     public FastApiTwinClient(
             @Value("${fastapi.base-url}") String baseUrl,
             @Value("${fastapi.connect-timeout-ms:1000}") int connectTimeoutMs,
-            @Value("${fastapi.read-timeout-ms:1500}") int readTimeoutMs,
-            @Value("${fastapi.internal-token:}") String internalToken
+            @Value("${fastapi.read-timeout-ms:1500}") int readTimeoutMs
     ) {
-        this.restClient = buildRestClient(
-                baseUrl, connectTimeoutMs, readTimeoutMs, internalToken);
+        this.restClient = buildRestClient(baseUrl, connectTimeoutMs, readTimeoutMs);
     }
 
     FastApiTwinClient(RestClient restClient) {
         this.restClient = restClient;
-    }
-
-    FastApiTwinClient(RestClient.Builder builder, String internalToken) {
-        this.restClient = withInternalToken(builder, internalToken).build();
     }
 
     public FastApiTwinFrameResponse evaluate(UUID vehicleId, BmsTwinSampleRequest request) {
@@ -84,8 +76,7 @@ public class FastApiTwinClient {
     private static RestClient buildRestClient(
             String baseUrl,
             int connectTimeoutMs,
-            int readTimeoutMs,
-            String internalToken
+            int readTimeoutMs
     ) {
         if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
             throw new IllegalArgumentException("FastAPI Twin timeouts must be positive");
@@ -93,19 +84,9 @@ public class FastApiTwinClient {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeoutMs);
         requestFactory.setReadTimeout(readTimeoutMs);
-        RestClient.Builder builder = RestClient.builder()
+        return RestClient.builder()
                 .baseUrl(baseUrl)
-                .requestFactory(requestFactory);
-        return withInternalToken(builder, internalToken).build();
-    }
-
-    private static RestClient.Builder withInternalToken(
-            RestClient.Builder builder,
-            String internalToken
-    ) {
-        if (internalToken != null && !internalToken.isBlank()) {
-            builder.defaultHeader(INTERNAL_TOKEN_HEADER, internalToken);
-        }
-        return builder;
+                .requestFactory(requestFactory)
+                .build();
     }
 }
