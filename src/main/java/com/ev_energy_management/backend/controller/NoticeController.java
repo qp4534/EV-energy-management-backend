@@ -22,13 +22,16 @@ public class NoticeController {
     }
 
     @GetMapping
-    public List<NoticeDto> getNotices(@AuthenticationPrincipal AuthenticatedUser user) {
-        return noticeService.findAll(user);
+    public List<NoticeDto> getNotices(@AuthenticationPrincipal AuthenticatedUser actor) {
+        return noticeService.findAll(actor);
     }
 
     @GetMapping("/{noticeId}")
-    public NoticeDto getNotice(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID noticeId) {
-        return noticeService.findById(user, noticeId);
+    public NoticeDto getNotice(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @PathVariable UUID noticeId
+    ) {
+        return noticeService.findById(actor, noticeId);
     }
 
     @PostMapping
