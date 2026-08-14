@@ -28,11 +28,12 @@ public class EmailVerificationService {
     private final StringRedisTemplate redisTemplate;
     private final JavaMailSender mailSender;
 
-    // ⚠️ Daum SMTP(smtp.daum.net)는 From 헤더가 없는 메일을 "501 5.5.2 not found FROM
-    // header in headers"로 거부한다(Gmail은 관대해서 이 문제가 안 드러났었음). SimpleMailMessage는
-    // setFrom()을 안 부르면 From을 아예 안 채우므로 명시적으로 넣어야 한다 - spring.mail.username과
-    // 반드시 같아야 한다(다르면 발신자 위조로 간주돼 다시 거부된다).
-    @Value("${spring.mail.username}")
+    // ⚠️ SMTP 서버 대부분(Daum 포함)이 From 헤더 없는 메일을 거부한다(Gmail은 관대해서
+    // 이 문제가 안 드러났었음). SimpleMailMessage는 setFrom()을 안 부르면 From을 아예
+    // 안 채우므로 명시적으로 넣어야 한다. Daum/Gmail 때는 spring.mail.username 자체가
+    // 로그인 이메일이라 그걸 그대로 From으로 썼었는데, SES SMTP username은 IAM access key
+    // 파생값이라 이메일 형식이 아니어서 더 이상 재사용할 수 없다 - mail.from-address로 분리.
+    @Value("${mail.from-address}")
     private String fromAddress;
 
     public EmailVerificationService(StringRedisTemplate redisTemplate, JavaMailSender mailSender) {
