@@ -43,11 +43,11 @@ public class NoticeService {
         this.noticeAttachmentService = noticeAttachmentService;
     }
 
-    // 이용자(차주)는 본인이 볼 수 있는 공지(전체 또는 target_role=USER)만, 관제자/관리자는
-    // 공지 관리 화면에서 전체를 다뤄야 하니 그대로 다 본다.
+    // 이용자(차주)와 비로그인 방문자(랜딩 페이지)는 본인이 볼 수 있는 공지(전체 또는
+    // target_role=USER)만, 관제자/관리자는 공지 관리 화면에서 전체를 다뤄야 하니 그대로 다 본다.
     public List<NoticeDto> findAll(AuthenticatedUser user) {
         List<NoticeEntity> notices = noticeRepository.findAll();
-        if ("이용자".equals(user.role())) {
+        if (user == null || "이용자".equals(user.role())) {
             notices = notices.stream().filter(this::visibleToCarOwners).toList();
         }
         return notices.stream().map(this::toDto).toList();
@@ -56,9 +56,9 @@ public class NoticeService {
     public NoticeDto findById(AuthenticatedUser user, UUID noticeId) {
         NoticeEntity entity = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("Notice not found: " + noticeId));
-        // 이용자가 관리자/관제자 전용 공지 id를 직접 조회하려 하면, 그런 공지가 존재하는지 자체를
-        // 드러내지 않기 위해 접근 거부 대신 "찾을 수 없음"으로 응답한다.
-        if ("이용자".equals(user.role()) && !visibleToCarOwners(entity)) {
+        // 이용자/비로그인 방문자가 관리자/관제자 전용 공지 id를 직접 조회하려 하면, 그런 공지가
+        // 존재하는지 자체를 드러내지 않기 위해 접근 거부 대신 "찾을 수 없음"으로 응답한다.
+        if ((user == null || "이용자".equals(user.role())) && !visibleToCarOwners(entity)) {
             throw new EntityNotFoundException("Notice not found: " + noticeId);
         }
         return toDto(entity);
