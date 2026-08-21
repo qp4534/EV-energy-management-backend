@@ -23,7 +23,10 @@ public class EmailVerificationService {
 
     private static final Duration CODE_TTL = Duration.ofMinutes(5);
     private static final Duration VERIFIED_TTL = Duration.ofMinutes(30);
-    private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
+    // 프론트(admin 앱 VerifyField.tsx, frontend-web SignupInfo.jsx/ResetPasswordRequest.jsx)의
+    // 재전송 카운트다운 표시 시간과 반드시 맞춰야 한다 - 안 맞으면 카운트다운이 끝났는데도
+    // 서버가 이 쿨다운에 걸려 재요청을 거부하는 상황이 생긴다.
+    private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(120);
 
     private final StringRedisTemplate redisTemplate;
     private final JavaMailSender mailSender;
